@@ -1,0 +1,11 @@
+version: '2'
+syncs:
+  server-app-sync:
+    src: 'server-app/'
+    volumes:
+      - server-app:/opt/app:rw
+    sync_host_ip: 'localhost'
+    sync_host_port: 10871
+    sync_group: root
+    sync_userid: 0
+    sync_strategy: 'rsync'

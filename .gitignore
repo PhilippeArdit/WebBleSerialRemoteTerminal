@@ -1,0 +1,3 @@
+server-logs/app.log
+.docker-sync/daemon.pid
+.docker-sync/daemon.log
