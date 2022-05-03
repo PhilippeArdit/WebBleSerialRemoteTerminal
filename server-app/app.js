@@ -7,8 +7,13 @@ const app = express();
 // -=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=
 // Define HTTP server and port
 // -=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=
-const http = require('http');
-const server = http.createServer(app);
+const https = require('https');
+const fs = require('fs');
+const options = {
+  key: fs.readFileSync('server.key'),
+  cert: fs.readFileSync('server.cer')
+};
+const server = https.createServer(options, app);
 const port = process.env.PORT || 3000;
 
 // -=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=
@@ -60,5 +65,5 @@ io.on('connection', (socket) => {
 // Launch HTTP Server
 // -=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=
 server.listen(port, () => {
-  logToConsoleAndFile(`Server running at http://localhost:${port}/`);
+  logToConsoleAndFile(`Server running at https://localhost:${port}/`);
 });
