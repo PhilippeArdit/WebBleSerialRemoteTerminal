@@ -56,8 +56,8 @@ io.on('connection', (socket) => {
     logToConsoleAndFile('broadcast chat message' + userId + 'disconnected');
   });
   socket.on('chat message', (msg) => {
-    io.emit('chat message', userId + msg);
-    logToConsoleAndFile('chat message' + userId + msg);
+    socket.broadcast.emit('chat message', userId + msg);
+    logToConsoleAndFile('broadcast chat message' + userId + msg);
   });
 });
 

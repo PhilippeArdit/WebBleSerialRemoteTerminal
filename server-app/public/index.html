@@ -1,19 +1,66 @@
 <!DOCTYPE html>
-<html>
+<html lang="en">
 
 <head>
-    <title>EXOMO console</title>
+    <meta charset="utf-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <meta name="theme-color" content="#2196f3">
+    <meta name="mobile-web-app-capable" content="yes">
+    <meta name="apple-mobile-web-app-capable" content="yes">
+    <meta name="msapplication-starturl" content="./">
+    <meta name="description"
+        content="Progressive Web Application for serial communication with your own Bluetooth Low Energy (Smart) devices">
+
+    <title>EXOMO Web Bluetooth Terminal</title>
+
+    <link rel="manifest" href="manifest.json">
+    <link rel="apple-touch-icon" sizes="180x180" href="icons/apple-touch-icon.png">
+    <link rel="icon" type="image/png" sizes="32x32" href="icons/favicon-32x32.png">
+    <link rel="icon" type="image/png" sizes="16x16" href="icons/favicon-16x16.png">
+    <link rel="mask-icon" href="icons/safari-pinned-tab.svg" color="#2196f3">
+    <link rel="shortcut icon" href="icons/favicon.ico">
+
     <link rel="stylesheet" href="./css/index.css">
 </head>
 
 <body>
-    <ul id="messages"></ul>
-    <form id="form" action="">
-        <input id="input" autocomplete="off" />
-        <button>Submit</button>
-    </form>
+    <div class="container">
+        <div id="toolbar" class="Header">
+            <div id="deviceName" class="name">Terminal</div>
+            <div class="buttons">
+                <button id="connectButton" type="button" aria-label="Connect">
+                    <i class="material-icons">Connect</i>
+                </button>
+                <button id="disconnectButton" type="button" aria-label="Disconnect">
+                    <i class="material-icons">Disconnect</i>
+                </button>
+            </div>
+        </div>
+
+        <div class="Main">
+            <div id="terminalContainer" class="Terminal"></div>
+            <div id="messagesContainer" class="Chat"></div>
+        </div>
+
+        <div class="Footer">
+            <form id="terminalForm" action="">
+                <input id="terminalInput" type="text" aria-label="Input" autocomplete="off" placeholder="Type something to send to device...">
+                <button type="submit" aria-label="Send to device">
+                    <i class="material-icons">Send to device</i>
+                </button>
+            </form>
+            <form id="chatForm" action="">
+                <input id="chatInput" type="text" aria-label="Input" autocomplete="off" placeholder="Type something to send to people...">
+                <button type="submit" aria-label="Send to people">
+                    <i class="material-icons">Send to people</i>
+                </button>
+            </form>
+        </div>
+    </div>
+
+    <script src="js/BluetoothTerminal.js"></script>
     <script src="/socket.io/socket.io.js"></script>
-    <script src="./js/client.js"></script>
+    <script src="js/main.js"></script>
 </body>
 
 </html>
