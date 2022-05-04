@@ -1,7 +1,7 @@
 module.exports = {
   apps : [{
     "name"   : "app",
-    "script" : "./app.js",
+    "script" : "./server.js",
     "watch"  : true,
     "ignore_watch" : "logs/*"
   }]

@@ -48,17 +48,29 @@ io.on('connection', (socket) => {
   logToConsoleAndFile("socket.handshake : " + JSON.stringify(socket.handshake));
   const userId = ' (' + socket.handshake.query.t /* + socket.handshake.issued */ + ') ';
 
-  socket.broadcast.emit('chat message', userId + 'connected');
-  logToConsoleAndFile('broadcast chat message' + userId + 'connected');
+  socket.broadcast.emit('chatMsg', userId + 'connected');
+  logToConsoleAndFile('broadcast chatMsg' + userId + 'connected');
 
   socket.on('disconnect', () => {
-    socket.broadcast.emit('chat message', userId + 'disconnected');
-    logToConsoleAndFile('broadcast chat message' + userId + 'disconnected');
+    socket.broadcast.emit('chatMsg', userId + 'disconnected');
+    logToConsoleAndFile('broadcast chatMsg' + userId + 'disconnected');
   });
-  socket.on('chat message', (msg) => {
-    socket.broadcast.emit('chat message', userId + msg);
-    logToConsoleAndFile('broadcast chat message' + userId + msg);
+
+  socket.on('chatMsg', (msg) => {
+    socket.broadcast.emit('chatMsg', userId + msg);
+    logToConsoleAndFile('broadcast chatMsg' + userId + msg);
   });
+
+  socket.on('termMsg', (msg) => {
+    socket.broadcast.emit('termMsg', userId + msg);
+    logToConsoleAndFile('broadcast termMsg' + userId + msg);
+  });
+
+  socket.onAny((event, ...args) => {
+    if (`${event}` != 'termMsg' && `${event}` != 'chatMsg')
+      logToConsoleAndFile(`received : ${event}`);
+  });
+
 });
 
 // -=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=
