@@ -24,8 +24,8 @@
 </head>
 
 <body>
-    <div class="container">
-        <div id="toolbar" class="Header">
+    <div class="mainAreaStyle">
+        <div id="toolbar" class="topAreaStyle">
             <div id="deviceName" class="name">Terminal</div>
             <div class="buttons">
                 <button id="connectButton" type="button" aria-label="Connect">
@@ -37,24 +37,35 @@
             </div>
         </div>
 
-        <div class="Main">
-            <div id="terminalContainer" class="Terminal"></div>
-            <div id="messagesContainer" class="Chat"></div>
+        <div class="middleAreaStyle">
+            <div class="terminalAreaStyle">
+                <div class="terminalContainerWrapper">
+                    <div id="terminalContainer" class="container"></div>
+                </div>
+                <form id="terminalForm" class="terminalFormAreaStyle" action="">
+                    <input id="terminalInput" type="text" aria-label="Input" autocomplete="off"
+                        placeholder="Type something to send to device...">
+                    <button type="submit" aria-label="Send to device">
+                        <i class="material-icons">Send to device</i>
+                    </button>
+                </form>
+            </div>
+            <div class="chatAreaStyle">
+                <div class="chatContainerWrapper">
+                    <div id="chatContainer" class="container"></div>
+                </div>
+                <form id="chatForm" class="chatFormAreaStyle" action="">
+                    <input id="chatInput" type="text" aria-label="Input" autocomplete="off"
+                        placeholder="Type something to send to people...">
+                    <button type="submit" aria-label="Send to people">
+                        <i class="material-icons">Send to people</i>
+                    </button>
+                </form>
+            </div>
         </div>
 
-        <div class="Footer">
-            <form id="terminalForm" action="">
-                <input id="terminalInput" type="text" aria-label="Input" autocomplete="off" placeholder="Type something to send to device...">
-                <button type="submit" aria-label="Send to device">
-                    <i class="material-icons">Send to device</i>
-                </button>
-            </form>
-            <form id="chatForm" action="">
-                <input id="chatInput" type="text" aria-label="Input" autocomplete="off" placeholder="Type something to send to people...">
-                <button type="submit" aria-label="Send to people">
-                    <i class="material-icons">Send to people</i>
-                </button>
-            </form>
+        <div class="bottomAreaStyle">
+            <!-- nothing for the moment -->
         </div>
     </div>
 

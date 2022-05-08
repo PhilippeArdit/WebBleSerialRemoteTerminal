@@ -2,7 +2,7 @@
 // Socket stuff
 // -=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=
 var socket = io();
-var messagesContainer = document.getElementById('messagesContainer');
+var chatContainer = document.getElementById('chatContainer');
 var chatForm = document.getElementById('chatForm');
 var chatInput = document.getElementById('chatInput');
 
@@ -11,10 +11,10 @@ chatForm.addEventListener('submit', function (e) {
   if (chatInput.value) {
     socket.emit('chatMsg', chatInput.value);
     var item = document.createElement('li');
-    item.className = 'mine';
+    item.className = 'out';
     item.textContent = chatInput.value;
-    messagesContainer.appendChild(item);
-    scrollElement(messagesContainer);
+    chatContainer.appendChild(item);
+    scrollElement(chatContainer);
     chatInput.value = '';
   }
 });
@@ -22,8 +22,8 @@ chatForm.addEventListener('submit', function (e) {
 socket.on('chatMsg', function (msg) {
   var item = document.createElement('li');
   item.textContent = msg;
-  messagesContainer.appendChild(item);
-  scrollElement(messagesContainer);
+  chatContainer.appendChild(item);
+  scrollElement(chatContainer);
 });
 
 // -=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=
@@ -41,7 +41,7 @@ const terminalInput = document.getElementById('terminalInput');
 // Helpers.
 const defaultDeviceName = 'Terminal';
 const terminalAutoScrollingLimit = terminalContainer.offsetHeight / 2;
-const messagesAutoScrollingLimit = messagesContainer.offsetHeight / 2;
+const messagesAutoScrollingLimit = chatContainer.offsetHeight / 2;
 let isTerminalAutoScrolling = true;
 let isMessagesAutoScrolling = true;
 
@@ -59,18 +59,22 @@ terminalContainer.addEventListener('scroll', () => {
   isTerminalAutoScrolling = (scrollTopOffset < terminalContainer.scrollTop);
 });
 
-messagesContainer.addEventListener('scroll', () => {
-  const scrollTopOffset = messagesContainer.scrollHeight -
-    messagesContainer.offsetHeight - messagesAutoScrollingLimit;
-  isMessagesAutoScrolling = (scrollTopOffset < messagesContainer.scrollTop);
+chatContainer.addEventListener('scroll', () => {
+  const scrollTopOffset = chatContainer.scrollHeight -
+    chatContainer.offsetHeight - messagesAutoScrollingLimit;
+  isMessagesAutoScrolling = (scrollTopOffset < chatContainer.scrollTop);
 });
 
-const logToTerminal = (message, type = '') => {
-  terminalContainer.insertAdjacentHTML('beforeend', `<div${type && ` class="${type}"`}>${message}</div>`);
+const logToTerminal = (message, type = 'in') => {
+  var item = document.createElement('li');
+    item.className = type;
+    item.textContent = message;
+    terminalContainer.appendChild(item);
   if (isTerminalAutoScrolling) {
     scrollElement(terminalContainer);
   }
 };
+
 
 socket.on('termMsg', function (message, type = '') {
   logToTerminal(message, type);
@@ -86,9 +90,9 @@ terminal.receive = function (message) {
 };
 
 // Override default log method to output messages to the terminal and console.
-terminal._log = function (...messagesContainer) {
+terminal._log = function (...chatContainer) {
   // We can't use `super._log()` here.
-  messagesContainer.forEach((message) => {
+  chatContainer.forEach((message) => {
     logToTerminal(message);
     console.log(message); // eslint-disable-line no-console
     socket.emit('termMsg', message);
