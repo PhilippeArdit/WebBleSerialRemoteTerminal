@@ -148,16 +148,22 @@ form input::placeholder {
 }
 
 .container>li {
-    padding: 0.5rem 1rem;
+    margin-left: 1em;
+    white-space: pre-wrap;
+    font-size: 12px;
+    font-family: Fixed, monospace;
+    overflow-wrap: break-word;
 }
 
-.container>li.out {
+.container>.out {
     color: #366ff4;
-    display: flex;
-    justify-content: right;
+    /* display: flex; */
+    /* justify-content: right; */
+    font-weight: bold;
+    background-color: #cfcde9 !important;
 }
 
-.container>li.in {
+.container>.in {
     color: #000000;
 }
 

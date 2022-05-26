@@ -27,7 +27,7 @@ socket.on('chatMsg', function (msg) {
 });
 
 // -=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=
-// BLE stuff
+// Terminal stuff
 // -=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=
 
 // UI elements.
@@ -65,65 +65,167 @@ chatContainer.addEventListener('scroll', () => {
   isMessagesAutoScrolling = (scrollTopOffset < chatContainer.scrollTop);
 });
 
-const logToTerminal = (message, type = 'in') => {
+const addLi = (message, type = 'in') => {
   var item = document.createElement('li');
-    item.className = type;
-    item.textContent = message;
-    terminalContainer.appendChild(item);
+  item.className = type;
+  item.textContent = message;
+  terminalContainer.appendChild(item);
   if (isTerminalAutoScrolling) {
     scrollElement(terminalContainer);
   }
+}
+var strBuf = '';
+const logToTerminal = (message, type = 'in') => {
+  if (type == 'in') {
+    strBuf += message;
+    var t = strBuf.split('\n');
+    var i = 0;
+    strBuf = t[t.length - 1];
+    while (i < t.length - 1) {
+      addLi(t[i], type);
+      i++;
+    };
+  } else {
+    addLi(message, type);
+  }
 };
 
-
-socket.on('termMsg', function (message, type = '') {
-  logToTerminal(message, type);
+socket.on('termMsgIn', function (msg) {
+  logToTerminal(msg, 'in');
+});
+socket.on('termMsgOut', function (msg) {
+  logToTerminal(msg, 'out');
 });
 
-// Obtain configured instance.
-const terminal = new BluetoothTerminal();
-
-// Override `receive` method to log incoming data to the terminal.
-terminal.receive = function (message) {
-  logToTerminal(message, 'in');
-  socket.emit('termMsg', message);
-};
-
-// Override default log method to output messages to the terminal and console.
-terminal._log = function (...chatContainer) {
-  // We can't use `super._log()` here.
-  chatContainer.forEach((message) => {
-    logToTerminal(message);
-    console.log(message); // eslint-disable-line no-console
-    socket.emit('termMsg', message);
-  });
-};
-
-// Implement own send function to log outcoming data to the terminal.
-const send = (message) => {
-  terminal.send(message).
-  then(() => logToTerminal(message, 'out')).
-  catch((error) => logToTerminal(error));
-  socket.emit('termMsg', message);
-};
+// -=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=
+// 
+// -=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=
 
 // Bind event listeners to the UI elements.
+var uartOrBle;
+UART.debug = 0;
 connectButton.addEventListener('click', () => {
-  terminal.connect().
-  then(() => {
-    deviceName.textContent = terminal.getDeviceName() ?
-      terminal.getDeviceName() : defaultDeviceName;
+  if (!UART.checkIfSupported()) {
+    // modal
+    var e = document.createElement('div');
+    e.style = 'position:absolute;top:0px;left:0px;right:0px;bottom:0px;opacity:0.5;z-index:100;background:black;';
+    // menu
+    var menu = document.createElement('div');
+    menu.style = 'position:absolute;left:15%;top:15%;width:75%;height:75%;font-family: Sans-Serif;z-index:101;';
+    var menutitle = document.createElement('div');
+    menutitle.innerHTML = '<span >Unsupported computer or browser</span><span style="float:right;">Close</span>';
+    menutitle.style = 'color:#fff;background:#000;padding:8px 8px 4px 8px;font-weight:bold;cursor:pointer;';
+    menu.appendChild(menutitle);
+    var items = document.createElement('div');
+    items.style = 'color:#000;background:#fff;padding:4px 8px 4px 8px;overflow:auto;height:85%;';
+    menu.appendChild(items);
+    var ep = document.createElement('div');
+    ep.style = 'background:#ccc;margin:4px 0px 4px 0px;padding:10px 10px 10px 10px;';
+    ep.innerHTML = '<h2>Hardware</h2>' +
+      '<p>For Bluetooth LE you need a Bluetooth 4.0-capable adaptor in your computer (Bluetooth versions before 4.0 won&#39;t work). Pretty much all new computers come with Bluetooth 4, but you <em>may</em> need to get an external Bluetooth LE dongle if your computer:</p>' +
+      '<ul>' +
+      '<li>Is an Apple Mac made before 2012</li>' +
+      '<li>Is a Windows PC with a Windows version before 10</li>' +
+      '<li>Is a Desktop PC - it may not have any wireless support <em>at all</em></li>' +
+      '<li>Is running Linux - much of the built-in Bluetooth LE functionality in laptops is still buggy. External USB adaptors will be much more reliable.</li>' +
+      '</ul>' +
+      '<p>If your computer doesn&#39;t have Bluetooth LE then Bluetooth LE USB adaptors and small, cheap (~$10), and easily available. There are two main types of USB Bluetooth Adaptor available:</p>' +
+      '<ul>' +
+      '<li><strong>Broadcom chipset</strong> (eg. BCM20702) works well on all platforms.</li>' +
+      '<li><strong>Cambridge Silicon Radio (CSR)</strong> - these work great on Linux and Windows. However while they used to work on Macs, <em>Apple removed support in the High Sierra OS update</em> - so you&#39;re better off with a Broadcom module.</li>' +
+      '</ul>' +
+      '<p>To be sure that you get a usable adaptor we&#39;d recommend that you buy ONLY adaptors that explicitly mention <code>CSR</code> or <code>Broadcom</code> in the descriptuon. <strong>The BlueGiga BLED112 module WILL NOT WORK</strong> - it is a serial port device, not a general purpose Bluetooth adaptor.</p>' +
+      '<p>Common USB Bluetooth adaptors that have been tested and work are:</p>' +
+      '<ul>' +
+      '<li><a target="_blank" href="https://www.amazon.com/gp/product/B01J3AMITS">iAmotus UD-400M</a> - Broadcom BCM20702A1</li>' +
+      '<li><a target="_blank" href="https://www.amazon.com/gp/product/B009ZIILLI">Plugable USB-BT4LE</a> - Broadcom BCM20702A1</li>' +
+      '<li><a target="_blank" href="https://shop.espruino.com/ble/usb-bluetooth">Feasycom FSC-BP119</a> - CSR chipset <strong>with external antenna</strong></li>' +
+      '<li><a target="_blank" href="https://www.amazon.com/gp/product/B01AXGYS30">Whitelabel 06Q Nano</a> - CSR chipset</li>' +
+      '<li><a target="_blank" href="https://www.amazon.com/gp/product/B01J35AUS4">Whitelabel BM35</a> - CSR chipset</li>' +
+      '<li><a target="_blank" href="https://www.amazon.com/dp/product/B0775YF36R">Unbranded &#39;CSR 4.0&#39;</a> - CSR Chipset</li>' +
+      '</ul>' +
+      '<h2>Software</h2>' +
+      '' +
+      '<p>If your computer supports it, Web Bluetooth is the easiest way to get started here.</p>' +
+      '<p>You&#39;ll need an up to date version of <a target="_blank" href="https://www.google.com/chrome/browser/desktop/">Google Chrome</a>, Edge or Opera Web Browsers on one of:</p>' +
+      '<h4>Mac OS</h4>' +
+      '<p>OS X Yosemite or later required, and check that your Mac supports Bluetooth Low Energy:</p>' +
+      '<ul>' +
+      '<li>Click the Apple logo then <code>About this Mac</code> in the top left</li>' +
+      '<li>Click <code>System Report</code></li>' +
+      '<li>Click <code>Bluetooth</code> under <code>Hardware</code></li>' +
+      '<li>See if it says <code>Bluetooth Low Energy Supported</code></li>' +
+      '</ul>' +
+      '<p>If it doesn&#39;t:</p>' +
+      '<ul>' +
+      '<li>Get a Bluetooth 4.0 (or later) adaptor (they cost ~$10) - see the requirements section above.</li>' +
+      '<li>Open a terminal and type <code>sudo nvram bluetoothHostControllerSwitchBehavior=al­ways</code>' +
+      '(to go back to the old behaviour type <code>sudo nvram -d bluetoothHostControllerSwitchBehavior</code>)</li>' +
+      '<li>Reboot your Mac</li>' +
+      '<li><strong>Make sure that you turn off (or un-pair) any Bluetooth devices that were using your internal Bluetooth</strong> - they may stop your Mac from using the new adaptor</li>' +
+      '</ul>' +
+      '<p>If the Web Bluetooth option appears but you&#39;re unable to see any Bluetooth devices,' +
+      'try: <code>System Preferences</code> —&gt; <code>Security &amp; Privacy</code> —&gt; <code>Bluetooth</code> -&gt; Add <code>Google Chrome</code></p>' +
+      '<h4>Windows</h4>' +
+      '<p>Windows 10 fully supports Web Bluetooth, as long as you have an up to date' +
+      'version of <a target="_blank" href="https://www.google.com/chrome/browser/desktop/">Google Chrome</a> (v70 or above) and your PC has a Bluetooth LE' +
+      'radio (all new Laptops will).</p>' +
+      '<p>If you do not have Windows 10...</p>' +
+      '<h4>Linux</h4>' +
+      '<p>Linux is not officially supported in Chrome.  However, because ChromeOS is supported it can be possible to enable Linux support:</p>' +
+      '<p>BlueZ 5.41+ required (5.43 is more stable) - you can check by typing <code>bluetoothd --version</code>. If it isn&#39;t there are some <a target="_blank" href="/Web+Bluetooth+On+Linux">Bluez installation instructions here</a></p>' +
+      '<ul>' +
+      '<li>Type <code>chrome://flags</code> in the address bar</li>' +
+      '<li>You need to enable <code>Experimental Web Platform Features</code> (<code>chrome://flags/#enable-experimental-web-platform-features</code>).</li>' +
+      '<li>Also enable <code>Use the new permissions backend for Web Bluetooth</code> (<code>chrome://flags/#enable-web-bluetooth-new-permissions-backend</code>) if it exists</li>' +
+      '<li>Restart your browser</li>' +
+      '</ul>' +
+      '<h4>Chromebook</h4>' +
+      '<p>All Chromebooks with Bluetooth should support Web Bluetooth.</p>' +
+      '<h4>Android</h4>' +
+      '<p>Android 6 (Marshmallow) or later are supported out of the box.</p>' +
+      '<p>Android 5 (Lollipop) devices can use <a target="_blank" href="https://stackoverflow.com/questions/34810194/can-i-try-web-bluetooth-on-chrome-for-android-lollipop">Chromium installed over ADB to a developer mode device</a>.</p>' +
+      '<h4>iOS (iPhone, iPad)</h4>' +
+      '<p>Apple&#39;s built-in web browser does not support Web Bluetooth. Instead you&#39;ll' +
+      'need to <a target="_blank" href="https://itunes.apple.com/us/app/webble/id1193531073">install the WebBLE app</a></p>' +
+      '<p>Once that is done you&#39;ll be able to access Web Bluetooth through any' +
+      'webpage viewed with <a target="_blank" href="https://itunes.apple.com/us/app/webble/id1193531073">WebBLE</a></p>';
+
+    menutitle.onclick = function (evt) {
+      document.body.removeChild(menu);
+      document.body.removeChild(e);
+    };
+    items.appendChild(ep);
+    document.body.appendChild(e);
+    document.body.appendChild(menu);
+    return;
+  }
+  UART.connect(function (connection) {
+    if (!connection) throw "Error!";
+    connection.on('data', function (d) {
+      logToTerminal(d, 'in')
+      socket.emit('termMsgIn', d);
+    });
+    connection.on('close', function () {
+      logToTerminal('CONNECTION CLOSED', 'in')
+      socket.emit('termMsgIn', 'CONNECTION CLOSED');
+    });
+    uartOrBle = connection;
   });
 });
 
 disconnectButton.addEventListener('click', () => {
-  terminal.disconnect();
+  uartOrBle.close();
   deviceName.textContent = defaultDeviceName;
 });
 
 terminalForm.addEventListener('submit', (event) => {
   event.preventDefault();
-  send(terminalInput.value);
+  var theValue = terminalInput.value;
+  uartOrBle.write(theValue + '\n', function () {
+    logToTerminal(theValue, 'out');
+    socket.emit('termMsgOut', theValue);
+  });
   terminalInput.value = '';
   terminalInput.focus();
 });

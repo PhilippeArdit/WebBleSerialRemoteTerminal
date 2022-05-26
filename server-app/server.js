@@ -61,13 +61,17 @@ io.on('connection', (socket) => {
     logToConsoleAndFile('broadcast chatMsg' + userId + msg);
   });
 
-  socket.on('termMsg', (msg) => {
-    socket.broadcast.emit('termMsg', userId + msg);
-    logToConsoleAndFile('broadcast termMsg' + userId + msg);
+  socket.on('termMsgOut', (msg) => {
+    socket.broadcast.emit('termMsgOut', userId + msg);
+    logToConsoleAndFile('broadcast termMsgOut' + userId + msg);
+  });
+  socket.on('termMsgIn', (msg) => {
+    socket.broadcast.emit('termMsgIn', msg);
+    logToConsoleAndFile(msg);
   });
 
   socket.onAny((event, ...args) => {
-    if (`${event}` != 'termMsg' && `${event}` != 'chatMsg')
+    if (`${event}` != 'termMsgIn' && `${event}` != 'termMsgOut' && `${event}` != 'chatMsg')
       logToConsoleAndFile(`received : ${event}`);
   });
 
