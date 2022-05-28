@@ -294,6 +294,8 @@ Usage:
     },
     connect: function (connection, callback) {
       var serialPort;
+      var reader;
+      var writer;
       var deviceName = '';
 
       function disconnected() {
@@ -315,7 +317,7 @@ Usage:
         });
       }).then(function () {
         function readLoop() {
-          var reader = serialPort.readable.getReader();
+          reader = serialPort.readable.getReader();
           reader.read().then(function ({
             value,
             done
@@ -339,25 +341,26 @@ Usage:
         connection.isOpen = true;
         connection.isOpening = false;
         callback(connection);
+        connection.emit('open');
       }).catch(function (error) {
         log(0, 'ERROR: ' + error);
         disconnected();
       });
       connection.close = function (callback) {
-        if (serialPort) {
-          serialPort.close();
-          serialPort = undefined;
-        }
+        if (reader) reader.cancel();
+        if (reader) reader.releaseLock();
+        if (serialPort) serialPort.close();
+        serialPort = undefined;
         disconnected();
       };
       connection.write = function (data, callback) {
-        var writer = serialPort.writable.getWriter();
+        writer = serialPort.writable.getWriter();
         // TODO: progress?
         writer.write(str2ab(data)).then(function () {
           callback();
         }).catch(function (error) {
           log(0, 'SEND ERROR: ' + error);
-          closeSerial();
+          serialPort.close();
         });
         writer.releaseLock();
       };

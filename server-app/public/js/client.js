@@ -34,6 +34,7 @@ socket.on('chatMsg', function (msg) {
 const deviceName = document.getElementById('deviceName');
 const connectButton = document.getElementById('connectButton');
 const disconnectButton = document.getElementById('disconnectButton');
+const terminalButton = document.getElementById('terminalButton');
 const terminalContainer = document.getElementById('terminalContainer');
 const terminalForm = document.getElementById('terminalForm');
 const terminalInput = document.getElementById('terminalInput');
@@ -77,7 +78,7 @@ const addLi = (message, type = 'in') => {
 var strBuf = '';
 const logToTerminal = (message, type = 'in') => {
   if (type == 'in') {
-    strBuf += message;
+    strBuf += message.replace('\r\n', '\n');
     var t = strBuf.split('\n');
     var i = 0;
     strBuf = t[t.length - 1];
@@ -90,12 +91,45 @@ const logToTerminal = (message, type = 'in') => {
   }
 };
 
-socket.on('termMsgIn', function (msg) {
+socket.on('termDataIn', function (msg) {
   logToTerminal(msg, 'in');
 });
 socket.on('termMsgOut', function (msg) {
   logToTerminal(msg, 'out');
 });
+socket.on('termToggleConnected', function (msg) {
+  logToTerminal(msg + '\n', 'in');
+  setConnectedUI(bIsConnected = !bIsConnected);
+});
+
+// Set initial UI state
+function setConnectedUI(b) {
+  disconnectButton.style.display = b ? '' : 'none';
+  connectButton.style.display = b ? 'none' : '';
+  terminalButton.disabled = !b;
+  terminalInput.disabled = !b;
+}
+var bIsConnected = false;
+var bIAmConnected = false;
+
+// Does someone else has already a device connected ?
+socket.on('termIsConnected', function (msg) {
+          console.log('msg ' + msg);
+  if (msg == '?' && bIAmConnected) {
+    console.log('I am connected');
+    socket.emit('termIsConnected', 'true');
+  } else {
+    bIsConnected = msg == 'true';
+  }
+    setConnectedUI(bIsConnected);
+          console.log('bIsConnected ' + bIsConnected);
+        console.log('bIAmConnected ' + bIAmConnected);
+});
+
+setTimeout(function () {
+  socket.emit('termIsConnected', '?');
+}, 2000)
+
 
 // -=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=
 // 
@@ -202,13 +236,24 @@ connectButton.addEventListener('click', () => {
   }
   UART.connect(function (connection) {
     if (!connection) throw "Error!";
-    connection.on('data', function (d) {
-      logToTerminal(d, 'in')
-      socket.emit('termMsgIn', d);
+    connection.on('data', function (msg) {
+      logToTerminal(msg, 'in');
+      socket.emit('termDataIn', msg);
+    });
+
+    function _setConnectedUI(b) {
+      setConnectedUI(b);
+      const _msg = 'device ' + (b ? '' : 'dis') + 'connected';
+      logToTerminal(_msg + '\n', 'in');
+      socket.emit('termToggleConnected', _msg);
+    }
+    connection.on('open', function () {
+      _setConnectedUI(bIsConnected = true);
+      bIAmConnected = true;
     });
     connection.on('close', function () {
-      logToTerminal('CONNECTION CLOSED', 'in')
-      socket.emit('termMsgIn', 'CONNECTION CLOSED');
+      _setConnectedUI(bIsConnected = false);
+      bIAmConnected = false;
     });
     uartOrBle = connection;
   });

@@ -29,8 +29,8 @@ const io = new Server(server);
 // -=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=
 const logToFile = require('log-to-file');
 logToConsoleAndFile = msg => {
-  console.log(msg);
-  logToFile(msg, 'logs/app.log');
+  console.log(msg); 
+  logToFile(msg, 'logs/app.log'); // adds "2022.05.26, 11:48:05.0092 UTC -> " before each line
 };
 
 // -=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=
@@ -45,34 +45,51 @@ app.get('/', (req, res) => {
 // Socket events
 // -=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=
 io.on('connection', (socket) => {
-  logToConsoleAndFile("socket.handshake : " + JSON.stringify(socket.handshake));
-  const userId = ' (' + socket.handshake.query.t /* + socket.handshake.issued */ + ') ';
+  const userId = '(' + socket.handshake.query.t /* + socket.handshake.issued */ + ')';
 
-  socket.broadcast.emit('chatMsg', userId + 'connected');
-  logToConsoleAndFile('broadcast chatMsg' + userId + 'connected');
+  socket.broadcast.emit('chatMsg', userId + ' is connected');
+  logToConsoleAndFile(userId + ' is connected');
 
   socket.on('disconnect', () => {
-    socket.broadcast.emit('chatMsg', userId + 'disconnected');
-    logToConsoleAndFile('broadcast chatMsg' + userId + 'disconnected');
+    socket.broadcast.emit('chatMsg', userId + ' is disconnected');
+    logToConsoleAndFile(userId + ' is disconnected');
   });
 
   socket.on('chatMsg', (msg) => {
-    socket.broadcast.emit('chatMsg', userId + msg);
-    logToConsoleAndFile('broadcast chatMsg' + userId + msg);
+    const _msg = userId + ' > ' + msg;
+    socket.broadcast.emit('chatMsg', _msg);
+    logToConsoleAndFile(_msg);
   });
 
   socket.on('termMsgOut', (msg) => {
-    socket.broadcast.emit('termMsgOut', userId + msg);
-    logToConsoleAndFile('broadcast termMsgOut' + userId + msg);
+    const _msg = userId + ' > ' + msg;
+    socket.broadcast.emit('termMsgOut', _msg);
+    logToConsoleAndFile(_msg);
   });
-  socket.on('termMsgIn', (msg) => {
-    socket.broadcast.emit('termMsgIn', msg);
-    logToConsoleAndFile(msg);
+  socket.on('termDataIn', (msg) => {
+    _msg = msg.replace('\r\n', '\n');
+    socket.broadcast.emit('termDataIn', _msg);
+    logToConsoleAndFile(_msg);
+  });
+
+  socket.on('termToggleConnected', function (msg) {
+    const _msg = userId + ' > ' + msg;
+    socket.broadcast.emit('termToggleConnected', _msg);
+    logToConsoleAndFile(_msg);
+  });
+
+  socket.on('termIsConnected', function (msg) {
+    io.sockets.emit('termIsConnected', msg);
+    logToConsoleAndFile('termIsConnected ' + msg);
   });
 
   socket.onAny((event, ...args) => {
-    if (`${event}` != 'termMsgIn' && `${event}` != 'termMsgOut' && `${event}` != 'chatMsg')
-      logToConsoleAndFile(`received : ${event}`);
+    if (`${event}` != 'termDataIn' &&
+      `${event}` != 'termMsgOut' &&
+      `${event}` != 'termToggleConnected' &&
+      `${event}` != 'termIsConnected' &&
+      `${event}` != 'chatMsg')
+      logToConsoleAndFile(`received unknown event : ${event}`);
   });
 
 });
