@@ -1,5 +1,5 @@
 // -=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=
-// Socket stuff
+// Socket / Chat stuff
 // -=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=
 var socket = io();
 var chatContainer = document.getElementById('chatContainer');
@@ -10,21 +10,35 @@ chatForm.addEventListener('submit', function (e) {
   e.preventDefault();
   if (chatInput.value) {
     socket.emit('chatMsg', chatInput.value);
-    var item = document.createElement('li');
-    item.className = 'out';
-    item.textContent = chatInput.value;
-    chatContainer.appendChild(item);
-    scrollElement(chatContainer);
     chatInput.value = '';
   }
 });
 
-socket.on('chatMsg', function (msg) {
-  var item = document.createElement('li');
-  item.textContent = msg;
-  chatContainer.appendChild(item);
-  scrollElement(chatContainer);
+// -=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=
+// My Name input file
+// -=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=
+var myNameInput = document.getElementById('myNameInput');
+myNameInput.disabled = true;
+myName.addEventListener('click', function (e) {
+  myNameInput.disabled = false;
 });
+myNameInput.addEventListener('blur', function (e) {
+  myNameInput.disabled = true;
+  if (myNameInput.value != userId) {
+    userId = myNameInput.value;
+    socket.emit('myNameIs', userId);
+  }
+});
+myNameInput.addEventListener('keypress', function (e) {
+  if (e.key === 'Enter') {
+    myNameInput.disabled = true;
+    if (myNameInput.value != userId) {
+      userId = myNameInput.value;
+      socket.emit('myNameIs', userId);
+    }
+  }
+});
+
 
 // -=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=
 // Terminal stuff
@@ -76,7 +90,10 @@ const addLi = (message, type = 'in') => {
   }
 }
 var strBuf = '';
-const logToTerminal = (message, type = 'in') => {
+var timeoutId;
+const appendToTerminal = (message, type = 'in') => {
+  if (timeoutId) clearTimeout(timeoutId);
+
   if (type == 'in') {
     strBuf += message.replace('\r\n', '\n');
     var t = strBuf.split('\n');
@@ -86,24 +103,52 @@ const logToTerminal = (message, type = 'in') => {
       addLi(t[i], type);
       i++;
     };
+
+    // In case of text not ending with EOL
+    timeoutId = setTimeout(() => {
+      addLi(t[t.length - 1], type);
+      strBuf = '';
+    }, 500)
+
   } else {
     addLi(message, type);
   }
 };
 
-socket.on('termDataIn', function (msg) {
-  logToTerminal(msg, 'in');
+// -=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=
+// Socket events
+// -=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=
+
+socket.on('chatMsg', function (jsonObj) {
+  var item = document.createElement('li');
+  item.textContent = jsonObj.msg;
+  if (jsonObj.userId == userId)
+    item.className = 'out';
+  else
+    item.textContent = jsonObj.userId + jsonObj.sep + item.textContent;
+  chatContainer.appendChild(item);
+  scrollElement(chatContainer);
 });
-socket.on('termMsgOut', function (msg) {
-  logToTerminal(msg, 'out');
+
+var userId = '';
+socket.on('connectInfo', function (jsonObj) {
+  userId = jsonObj.userId;
+  myNameInput.value = userId;
 });
-socket.on('termToggleConnected', function (msg) {
-  logToTerminal(msg + '\n', 'in');
-  setConnectedUI(bIsConnected = !bIsConnected);
+
+socket.on('termDataIn', function (jsonObj) {
+  appendToTerminal(jsonObj.msg, 'in');
+});
+socket.on('termMsgOut', function (jsonObj) {
+  appendToTerminal((jsonObj.userId == userId ? '' : jsonObj.userId + jsonObj.sep) + jsonObj.msg, 'out');
+});
+socket.on('termToggleConnected', function (jsonObj) {
+  appendToTerminal((jsonObj.userId == userId ? '' : jsonObj.userId + jsonObj.sep) + jsonObj.msg, 'in');
+  setConnectedUI(bIsConnected);
 });
 
 // Set initial UI state
-function setConnectedUI(b) {
+const setConnectedUI = (b) => {
   disconnectButton.style.display = b ? '' : 'none';
   connectButton.style.display = b ? 'none' : '';
   terminalButton.disabled = !b;
@@ -113,23 +158,17 @@ var bIsConnected = false;
 var bIAmConnected = false;
 
 // Does someone else has already a device connected ?
-socket.on('termIsConnected', function (msg) {
-          console.log('msg ' + msg);
-  if (msg == '?' && bIAmConnected) {
-    console.log('I am connected');
-    socket.emit('termIsConnected', 'true');
+socket.on('isTermConnected', function (jsonObj) {
+  if (jsonObj.msg == '?' && bIAmConnected) {
+    socket.emit('isTermConnected', bIAmConnected);
   } else {
-    bIsConnected = msg == 'true';
+    if (jsonObj.msg === true) bIsConnected = true;
+    if (jsonObj.msg === false) bIsConnected = false;
   }
-    setConnectedUI(bIsConnected);
-          console.log('bIsConnected ' + bIsConnected);
-        console.log('bIAmConnected ' + bIAmConnected);
+  setConnectedUI(bIsConnected);
 });
 
-setTimeout(function () {
-  socket.emit('termIsConnected', '?');
-}, 2000)
-
+socket.timeout(1000).emit('isTermConnected', '?')
 
 // -=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=
 // 
@@ -234,26 +273,24 @@ connectButton.addEventListener('click', () => {
     document.body.appendChild(menu);
     return;
   }
+
   UART.connect(function (connection) {
     if (!connection) throw "Error!";
+
     connection.on('data', function (msg) {
-      logToTerminal(msg, 'in');
-      socket.emit('termDataIn', msg);
+      socket.emit('termDataIn', msg.replace('\r\n', '\n'));
     });
 
     function _setConnectedUI(b) {
-      setConnectedUI(b);
-      const _msg = 'device ' + (b ? '' : 'dis') + 'connected';
-      logToTerminal(_msg + '\n', 'in');
-      socket.emit('termToggleConnected', _msg);
+      bIAmConnected = bIsConnected = b;
+      socket.emit('termToggleConnected', 'device ' + (b ? '' : 'dis') + 'connected');
+      socket.emit('isTermConnected', b);
     }
     connection.on('open', function () {
-      _setConnectedUI(bIsConnected = true);
-      bIAmConnected = true;
+      _setConnectedUI(true);
     });
     connection.on('close', function () {
-      _setConnectedUI(bIsConnected = false);
-      bIAmConnected = false;
+      _setConnectedUI(false);
     });
     uartOrBle = connection;
   });
@@ -268,8 +305,7 @@ terminalForm.addEventListener('submit', (event) => {
   event.preventDefault();
   var theValue = terminalInput.value;
   uartOrBle.write(theValue + '\n', function () {
-    logToTerminal(theValue, 'out');
-    socket.emit('termMsgOut', theValue);
+    socket.emit('termMsgOut', theValue + '\n');
   });
   terminalInput.value = '';
   terminalInput.focus();

@@ -117,7 +117,7 @@ button:disabled {
     color: grey;
 }
 
-form input {
+ input {
     border: none;
     padding: 0 1rem;
     flex-grow: 1;
@@ -125,18 +125,13 @@ form input {
     margin: 0.25rem;
 }
 
-form input:disabled {
-    color: lightgrey;
-}
-
 *:focus {
     outline: none;
 }
 
-form input::placeholder {
+ #myName, input::placeholder {
     color: rgba(0, 0, 0, 0.54);
 }
-
 /*---------------------------------------------------------*/
 
 .container {

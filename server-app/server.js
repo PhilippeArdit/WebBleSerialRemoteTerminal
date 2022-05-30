@@ -29,7 +29,7 @@ const io = new Server(server);
 // -=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=
 const logToFile = require('log-to-file');
 logToConsoleAndFile = msg => {
-  console.log(msg); 
+  console.log(msg);
   logToFile(msg, 'logs/app.log'); // adds "2022.05.26, 11:48:05.0092 UTC -> " before each line
 };
 
@@ -44,55 +44,62 @@ app.get('/', (req, res) => {
 // -=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=
 // Socket events
 // -=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=
+// socket.emit : sends to current client only
+// socket.broadcast.emit : sends to all client but the current one
+// io.sockets.emit : sends to all client
+
 io.on('connection', (socket) => {
-  const userId = '(' + socket.handshake.query.t /* + socket.handshake.issued */ + ')';
+  var userId = socket.handshake.query.t /* + socket.handshake.issued */ ;
 
-  socket.broadcast.emit('chatMsg', userId + ' is connected');
-  logToConsoleAndFile(userId + ' is connected');
-
-  socket.on('disconnect', () => {
-    socket.broadcast.emit('chatMsg', userId + ' is disconnected');
-    logToConsoleAndFile(userId + ' is disconnected');
+  // Send some informations to new client
+  socket.emit('connectInfo', {
+    userId: userId
   });
 
-  socket.on('chatMsg', (msg) => {
-    const _msg = userId + ' > ' + msg;
-    socket.broadcast.emit('chatMsg', _msg);
-    logToConsoleAndFile(_msg);
-  });
+  const ioSocketEmit = (eventName, msg, sep) => {
+    io.sockets.emit(eventName, {
+      userId: userId,
+      msg: msg,
+      sep: sep
+    });
+    logToConsoleAndFile(userId + sep + msg);
+  }
 
-  socket.on('termMsgOut', (msg) => {
-    const _msg = userId + ' > ' + msg;
-    socket.broadcast.emit('termMsgOut', _msg);
-    logToConsoleAndFile(_msg);
-  });
-  socket.on('termDataIn', (msg) => {
-    _msg = msg.replace('\r\n', '\n');
-    socket.broadcast.emit('termDataIn', _msg);
-    logToConsoleAndFile(_msg);
-  });
+  ioSocketEmit('chatMsg', 'connected', ' is ');
 
-  socket.on('termToggleConnected', function (msg) {
-    const _msg = userId + ' > ' + msg;
-    socket.broadcast.emit('termToggleConnected', _msg);
-    logToConsoleAndFile(_msg);
-  });
+  socket.onAny((eventName, ...args) => {
+    var msg = args[0];
+    var sep = '> ';
+    var evtName = eventName;
 
-  socket.on('termIsConnected', function (msg) {
-    io.sockets.emit('termIsConnected', msg);
-    logToConsoleAndFile('termIsConnected ' + msg);
-  });
+    switch (eventName) {
+      case 'myNameIs':
+        evtName = 'chatMsg';
+        sep = ' is renamed as ';
+        break;
+      case 'disconnect':
+        evtName = 'chatMsg';
+        sep = ' is ';
+        msg = 'disconnected';
+        break;
+      default:
+        break;
+    };
 
-  socket.onAny((event, ...args) => {
-    if (`${event}` != 'termDataIn' &&
-      `${event}` != 'termMsgOut' &&
-      `${event}` != 'termToggleConnected' &&
-      `${event}` != 'termIsConnected' &&
-      `${event}` != 'chatMsg')
-      logToConsoleAndFile(`received unknown event : ${event}`);
-  });
+    // Boradcast
+    ioSocketEmit(evtName, msg, sep);
 
+    // Do something after
+    switch (eventName) {
+      case 'myNameIs':
+        userId = msg;
+        break;
+      default:
+        break;
+    };
+  });
 });
+
 
 // -=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=
 // Launch HTTP Server
