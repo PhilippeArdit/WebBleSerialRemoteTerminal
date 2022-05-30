@@ -139,9 +139,13 @@ socket.on('connectInfo', function (jsonObj) {
 socket.on('termDataIn', function (jsonObj) {
   appendToTerminal(jsonObj.msg, 'in');
 });
+
 socket.on('termMsgOut', function (jsonObj) {
+  if (bIAmConnected) 
+    uartOrBle.write(jsonObj.msg + '\n', function () {});
   appendToTerminal((jsonObj.userId == userId ? '' : jsonObj.userId + jsonObj.sep) + jsonObj.msg, 'out');
 });
+
 socket.on('termToggleConnected', function (jsonObj) {
   appendToTerminal((jsonObj.userId == userId ? '' : jsonObj.userId + jsonObj.sep) + jsonObj.msg, 'in');
   setConnectedUI(bIsConnected);
@@ -304,9 +308,7 @@ disconnectButton.addEventListener('click', () => {
 terminalForm.addEventListener('submit', (event) => {
   event.preventDefault();
   var theValue = terminalInput.value;
-  uartOrBle.write(theValue + '\n', function () {
-    socket.emit('termMsgOut', theValue + '\n');
-  });
+  socket.emit('termMsgOut', theValue + '\n');
   terminalInput.value = '';
   terminalInput.focus();
 });
