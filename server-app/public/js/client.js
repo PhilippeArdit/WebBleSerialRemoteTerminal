@@ -1,59 +1,81 @@
 // -=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=
-// Socket / Chat stuff
+// UI elements.
 // -=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=
-var socket = io();
-var chatContainer = document.getElementById('chatContainer');
-var chatForm = document.getElementById('chatForm');
-var chatInput = document.getElementById('chatInput');
+const chatContainer = document.getElementById('chatContainer');
+const chatForm = document.getElementById('chatForm');
+const chatInput = document.getElementById('chatInput');
+const deviceName = document.getElementById('deviceName');
+const connectButton = document.getElementById('connectButton');
+const disconnectButton = document.getElementById('disconnectButton');
+const commandButton = document.getElementById('commandButton');
+const terminalButton = document.getElementById('terminalButton');
+const terminalContainer = document.getElementById('terminalContainer');
+const terminalForm = document.getElementById('terminalForm');
+const terminalInput = document.getElementById('terminalInput');
+const myNameInput = document.getElementById('myNameInput');
 
-chatForm.addEventListener('submit', function (e) {
-  e.preventDefault();
+// -=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=
+// Global variables
+// -=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=
+var socket = io(); // Socket used to transmit informations between clients thru server
+var userId = ''; // The user name
+var bIsConnected = false; // Someone is connected to a device
+var bIAmConnected = false; // The current client is connectied to a device
+var uartOrBle; // The device connected
+UART.debug = 0; // Log level for BLE or Serial device
+
+// -=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=
+// Submit actions
+// -=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=
+chatForm.addEventListener('submit', function (event) {
+  event.preventDefault();
   if (chatInput.value) {
     socket.emit('chatMsg', chatInput.value);
     chatInput.value = '';
+    chatInput.focus();
+  }
+});
+
+terminalForm.addEventListener('submit', (event) => {
+  event.preventDefault();
+  if (terminalInput.value) {
+    socket.emit('termMsgOut', terminalInput.value + '\n');
+    terminalInput.value = '';
+    terminalInput.focus();
   }
 });
 
 // -=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=
-// My Name input file
+// Change my name
 // -=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=
-var myNameInput = document.getElementById('myNameInput');
 myNameInput.disabled = true;
-myName.addEventListener('click', function (e) {
+myName.addEventListener('click', function (event) {
   myNameInput.disabled = false;
 });
-myNameInput.addEventListener('blur', function (e) {
-  myNameInput.disabled = true;
-  if (myNameInput.value != userId) {
-    userId = myNameInput.value;
-    socket.emit('myNameIs', userId);
-  }
-});
-myNameInput.addEventListener('keypress', function (e) {
-  if (e.key === 'Enter') {
-    myNameInput.disabled = true;
+
+const changeMyName = () => {
+  if (myNameInput.value.trim() == '') {
+    myNameInput.focus();
+  } else {
     if (myNameInput.value != userId) {
       userId = myNameInput.value;
       socket.emit('myNameIs', userId);
     }
+    myNameInput.disabled = true;
   }
+}
+myNameInput.addEventListener('blur', function (event) {
+  changeMyName();
 });
 
+myNameInput.addEventListener('keypress', function (event) {
+  if (event.key === 'Enter') changeMyName();
+});
 
 // -=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=
 // Terminal stuff
 // -=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=
 
-// UI elements.
-const deviceName = document.getElementById('deviceName');
-const connectButton = document.getElementById('connectButton');
-const disconnectButton = document.getElementById('disconnectButton');
-const terminalButton = document.getElementById('terminalButton');
-const terminalContainer = document.getElementById('terminalContainer');
-const terminalForm = document.getElementById('terminalForm');
-const terminalInput = document.getElementById('terminalInput');
-
-// Helpers.
 const defaultDeviceName = 'Terminal';
 const terminalAutoScrollingLimit = terminalContainer.offsetHeight / 2;
 const messagesAutoScrollingLimit = chatContainer.offsetHeight / 2;
@@ -62,9 +84,7 @@ let isMessagesAutoScrolling = true;
 
 const scrollElement = (element) => {
   const scrollTop = element.scrollHeight - element.offsetHeight;
-  if (scrollTop > 0) {
-    element.scrollTop = scrollTop;
-  }
+  if (scrollTop > 0) element.scrollTop = scrollTop;
 };
 
 // Switch auto scrolling if it scrolls out of bottom.
@@ -85,17 +105,18 @@ const addLi = (message, type = 'in') => {
   item.className = type;
   item.textContent = message;
   terminalContainer.appendChild(item);
-  if (isTerminalAutoScrolling) {
-    scrollElement(terminalContainer);
-  }
+  if (isTerminalAutoScrolling) scrollElement(terminalContainer);
+
 }
 var strBuf = '';
 var timeoutId;
 const appendToTerminal = (message, type = 'in') => {
+  // Clear the order to write the end of the buffer if any
   if (timeoutId) clearTimeout(timeoutId);
 
   if (type == 'in') {
-    strBuf += message.replace('\r\n', '\n');
+    // Writes line by line
+    strBuf += message;
     var t = strBuf.split('\n');
     var i = 0;
     strBuf = t[t.length - 1];
@@ -105,6 +126,7 @@ const appendToTerminal = (message, type = 'in') => {
     };
 
     // In case of text not ending with EOL
+    // ask to print the end of the buffer
     timeoutId = setTimeout(() => {
       addLi(t[t.length - 1], type);
       strBuf = '';
@@ -130,7 +152,6 @@ socket.on('chatMsg', function (jsonObj) {
   scrollElement(chatContainer);
 });
 
-var userId = '';
 socket.on('connectInfo', function (jsonObj) {
   userId = jsonObj.userId;
   myNameInput.value = userId;
@@ -141,8 +162,7 @@ socket.on('termDataIn', function (jsonObj) {
 });
 
 socket.on('termMsgOut', function (jsonObj) {
-  if (bIAmConnected) 
-    uartOrBle.write(jsonObj.msg + '\n', function () {});
+  if (bIAmConnected) uartOrBle.write(jsonObj.msg + '\n', function () {});
   appendToTerminal((jsonObj.userId == userId ? '' : jsonObj.userId + jsonObj.sep) + jsonObj.msg, 'out');
 });
 
@@ -153,15 +173,17 @@ socket.on('termToggleConnected', function (jsonObj) {
 
 // Set initial UI state
 const setConnectedUI = (b) => {
-  disconnectButton.style.display = b ? '' : 'none';
+  disconnectButton.style.display = b && bIAmConnected ? '' : 'none';
   connectButton.style.display = b ? 'none' : '';
   terminalButton.disabled = !b;
   terminalInput.disabled = !b;
+  commandButton.disabled = !b;
 }
-var bIsConnected = false;
-var bIAmConnected = false;
 
-// Does someone else has already a device connected ?
+// -=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=
+// Does someone else is already 
+// connected to a device  ?
+// -=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=
 socket.on('isTermConnected', function (jsonObj) {
   if (jsonObj.msg == '?' && bIAmConnected) {
     socket.emit('isTermConnected', bIAmConnected);
@@ -171,28 +193,41 @@ socket.on('isTermConnected', function (jsonObj) {
   }
   setConnectedUI(bIsConnected);
 });
-
 socket.timeout(1000).emit('isTermConnected', '?')
 
 // -=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=
-// 
+// Who is connected ?
+// -=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=
+socket.on('whoIsConnected', function (jsonObj) {
+  if (jsonObj.msg == '?') socket.emit('chatMsg', 'I am connected');
+});
+socket.timeout(1000).emit('whoIsConnected', '?')
+
+// -=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=
+// Disconnect button
 // -=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=
 
-// Bind event listeners to the UI elements.
-var uartOrBle;
-UART.debug = 0;
+disconnectButton.addEventListener('click', () => {
+  uartOrBle.close();
+  deviceName.textContent = defaultDeviceName;
+});
+
+// -=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=
+// Connect button using UART object
+// -=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=
+
 connectButton.addEventListener('click', () => {
   if (!UART.checkIfSupported()) {
     // modal
-    var e = document.createElement('div');
-    e.style = 'position:absolute;top:0px;left:0px;right:0px;bottom:0px;opacity:0.5;z-index:100;background:black;';
+    var modalDiv = document.createElement('div');
+    modalDiv.style = 'position:absolute;top:0px;left:0px;right:0px;bottom:0px;opacity:0.5;z-index:100;background:black;';
     // menu
     var menu = document.createElement('div');
     menu.style = 'position:absolute;left:15%;top:15%;width:75%;height:75%;font-family: Sans-Serif;z-index:101;';
-    var menutitle = document.createElement('div');
-    menutitle.innerHTML = '<span >Unsupported computer or browser</span><span style="float:right;">Close</span>';
-    menutitle.style = 'color:#fff;background:#000;padding:8px 8px 4px 8px;font-weight:bold;cursor:pointer;';
-    menu.appendChild(menutitle);
+    var menuTitle = document.createElement('div');
+    menuTitle.innerHTML = '<span>Unsupported computer or browser</span><span style="float:right;">Close</span>';
+    menuTitle.style = 'color:#fff;background:#000;padding:8px 8px 4px 8px;font-weight:bold;cursor:pointer;';
+    menu.appendChild(menuTitle);
     var items = document.createElement('div');
     items.style = 'color:#000;background:#fff;padding:4px 8px 4px 8px;overflow:auto;height:85%;';
     menu.appendChild(items);
@@ -268,12 +303,12 @@ connectButton.addEventListener('click', () => {
       '<p>Once that is done you&#39;ll be able to access Web Bluetooth through any' +
       'webpage viewed with <a target="_blank" href="https://itunes.apple.com/us/app/webble/id1193531073">WebBLE</a></p>';
 
-    menutitle.onclick = function (evt) {
+    menuTitle.onclick = function (evt) {
       document.body.removeChild(menu);
-      document.body.removeChild(e);
+      document.body.removeChild(modalDiv);
     };
     items.appendChild(ep);
-    document.body.appendChild(e);
+    document.body.appendChild(modalDiv);
     document.body.appendChild(menu);
     return;
   }
@@ -290,25 +325,112 @@ connectButton.addEventListener('click', () => {
       socket.emit('termToggleConnected', 'device ' + (b ? '' : 'dis') + 'connected');
       socket.emit('isTermConnected', b);
     }
+
     connection.on('open', function () {
       _setConnectedUI(true);
     });
+
     connection.on('close', function () {
       _setConnectedUI(false);
     });
+
     uartOrBle = connection;
   });
 });
 
-disconnectButton.addEventListener('click', () => {
-  uartOrBle.close();
-  deviceName.textContent = defaultDeviceName;
-});
+// -=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=
+// Commands helper
+// -=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=
 
-terminalForm.addEventListener('submit', (event) => {
-  event.preventDefault();
-  var theValue = terminalInput.value;
-  socket.emit('termMsgOut', theValue + '\n');
-  terminalInput.value = '';
-  terminalInput.focus();
+commandButton.addEventListener('click', () => {
+
+  // modal
+  var modalDiv = document.createElement('div');
+  modalDiv.style = 'position:absolute;top:0px;left:0px;right:0px;bottom:0px;opacity:0.5;z-index:100;background:black;';
+  // menu
+  var menu = document.createElement('div');
+  menu.style = 'position:absolute;left:50%;top:50%;transform:translate(-50%,-50%);font-family: Sans-Serif;z-index:101;max-height:75%;overflow:auto;';
+
+  var menuTitle = document.createElement('div');
+  menuTitle.innerHTML = '<span>Select a command...</span><span style="float:right;">Close</span>';
+  menuTitle.style = 'color:#fff;background:#000;padding:8px 8px 4px 8px;font-weight:bold;cursor:pointer;';
+  menu.appendChild(menuTitle);
+
+  var items = document.createElement('div');
+  items.style = 'color:#000;background:#fff;padding:4px 8px 4px 8px;';
+  menu.appendChild(items);
+
+  commands.forEach(function (command) {
+    command.item = document.createElement('div');
+    command.item.style = 'min-width:300px;min-height:50px;background:#ccc;margin:4px 0px 4px 0px;padding:0px 10px 10px 10px;cursor:pointer;';
+    command.item.innerHTML =
+      '<div style="font-size:150%;padding-top:8px;">' + command.name + '</div>' +
+      '<div style="font-size:80%;color:#666;">' + command.description + '</div>';
+    command.item.onclick = function (evt) {
+      evt.preventDefault();
+      if (command.subCommands) {
+        var bDelete = command.subItems ? true : false;
+
+        if (!bDelete) {
+          command.subItems = document.createElement('div');
+          command.subItems.style = 'color:#000;background:#fff;padding:4px 8px 4px 8px;';
+          command.item.appendChild(command.subItems);
+        }
+        command.subCommands.forEach(function (subCommand) {
+          if (bDelete) {
+            command.subItems.removeChild(subCommand.subItem);
+            subCommand.subItem = undefined;
+          } else {
+            subCommand.subItem = document.createElement('div');
+            subCommand.subItem.style = 'min-height:50px;background:#ccc;margin:4px 0px 4px 0px;padding:0px 0px 0px 10px;cursor:pointer;';
+            subCommand.subItem.innerHTML =
+              '<div style="font-size:150%;padding-top:8px;">' + subCommand.name + '</div>' +
+              '<div style="font-size:80%;color:#666;">' + subCommand.description + '</div>';
+            subCommand.subItem.onclick = function (subEvt) {
+              subEvt.preventDefault();
+              subEvt.stopPropagation();
+              terminalInput.value = (command.evalJs ? eval(command.value) : command.value) + ' ' + (subCommand.evalJs ? eval(subCommand.value) : subCommand.value);
+              closeCommandMenu();
+            }
+            command.subItems.appendChild(subCommand.subItem);
+          }
+        });
+        if (bDelete) {
+          command.item.removeChild(command.subItems);
+          command.subItems = undefined;
+        }
+      } else {
+        terminalInput.value = command.evalJs ? eval(command.value) : command.value;
+        closeCommandMenu();
+      }
+    }
+    items.appendChild(command.item);
+  });
+
+  const closeCommandMenu = () => {
+    commands.forEach(function (command) {
+      if (command.subCommands) {
+        command.subCommands.forEach(function (subCommand) {
+          if (subCommand.subItem) command.subItems.removeChild(subCommand.subItem);
+          subCommand.subItem = undefined;
+        });
+      }
+      if (command.subItems) command.item.removeChild(command.subItems);
+      command.subItems = undefined;
+
+      items.removeChild(command.item);
+    });
+
+    menu.removeChild(items);
+    menu.removeChild(menuTitle);
+    document.body.removeChild(menu);
+    document.body.removeChild(modalDiv);
+  }
+
+  menuTitle.onclick = function (evt) {
+    closeCommandMenu();
+  };
+
+  document.body.appendChild(modalDiv);
+  document.body.appendChild(menu);
 });
