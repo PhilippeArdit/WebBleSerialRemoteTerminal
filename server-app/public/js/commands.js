@@ -46,3 +46,44 @@ commands.push({
         value: 'Format'
     }]
 });
+
+commands.push({
+    name: 'PrintOrSetParam',
+    description: 'PrintOrSetParam',
+    evalJs: false,
+    value: '@@PrintOrSetParam',
+    subCommands: [{
+        name: 'batteryVmin',
+        description: 'batteryVmin (42.80 Philippe, 42 Autres)',
+        evalJs: false,
+        value: 'batteryVmin 40.6'
+    }, {
+        name: 'batteryVmax',
+        description: 'batteryVmax (56.60 Philippe, 62.70 Autres)',
+        evalJs: false,
+        value: 'batteryVmax 57.4'
+    }]
+});
+
+commands.push({
+    name: 'Configuration',
+    description: 'Configuration Erase, Save, Load',
+    evalJs: false,
+    value: '@@Configuration',
+    subCommands: [{
+        name: 'Erase',
+        description: 'Erase',
+        evalJs: false,
+        value: 'Erase'
+    }, {
+        name: 'Save',
+        description: 'Save',
+        evalJs: false,
+        value: 'Save'
+    }, {
+        name: 'Load',
+        description: 'Load',
+        evalJs: false,
+        value: 'Load'
+    }]
+});

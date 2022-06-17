@@ -82,6 +82,10 @@ io.on('connection', (socket) => {
         sep = ' is ';
         msg = 'disconnected';
         break;
+      case 'termDataIn':
+        evtName = 'termDataIn';
+        sep = '';
+        break;
       default:
         break;
     };
