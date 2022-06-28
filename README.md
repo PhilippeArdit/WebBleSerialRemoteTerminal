@@ -15,7 +15,7 @@ Usage:
 This is a mix of the following resources :
 
 - First tutorial about sockets : <https://socket.io/get-started/chat>
-- Web Bluetooth Terminal from Danila Loginov (loginov-rocks): <https://github.com/loginov-rocks/Web-Bluetooth-Terminal> and <https://github.com/loginov-rocks/bluetooth-terminal>
+- Web Bluetooth Terminal from Danila Loginov : <https://github.com/loginov-rocks/Web-Bluetooth-Terminal> and <https://github.com/loginov-rocks/bluetooth-terminal>
 - Web Bluetooth API : <https://webbluetoothcg.github.io/web-bluetooth/>
 - Web Serial API : <https://web.dev/serial/>
 - Espruino Quick Start (Bluetooth LE) : <https://www.espruino.com/Quick+Start+BLE>
@@ -24,7 +24,7 @@ This is a mix of the following resources :
 
 ## Developer's notes
 
-### Docker and Development Environments
+### Docker and Development Environments on MacOS
 
 - Setting up for Node.js on MacOS : <https://www.activelamp.com/blog/devops/docker-and-development-environments-setting-up-for-nodejs-on-osx>
 
@@ -32,7 +32,7 @@ This is a mix of the following resources :
 
 - for <https://localhost:3000/>
 - ok with Chrome
-- subject=C = FR, ST = Herault, L = Mudaison, O = Exomo, CN = localhost, emailAddress = philippe@exomo.com
+- subject=C = FR, ST = Herault, L = Mudaison, O = mycompany, CN = localhost, emailAddress = myemail
 
         cd server-app
 
@@ -59,19 +59,19 @@ or
 
 - Ctrl+C
 - docker-sync-stack clean
-- docker image rm exomoterminal_server-app
+- docker image rm WebBleSerialRemoteTerminal_server-app
 
 or
 
 - Ctrl+C
 - docker-sync clean
 - docker-compose down
-- docker image rm exomoterminal_server-app
+- docker image rm WebBleSerialRemoteTerminal_server-app
 
 ### Restart the server
 
 - Ctrl+C
-- docker-sync-stack clean && docker image rm exomoterminal_server-app && docker-sync-stack start
+- docker-sync-stack clean && docker image rm WebBleSerialRemoteTerminal_server-app && docker-sync-stack start
 
 ### Web app usage
 
