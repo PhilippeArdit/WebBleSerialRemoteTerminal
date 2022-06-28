@@ -7,5 +7,4 @@ fi
 pwd
 tree -I node_modules
 
-#pm2-dev start "$PROJECT_ROOT/server.js"
 pm2-dev start "$PROJECT_ROOT/ecosystem.config.js"

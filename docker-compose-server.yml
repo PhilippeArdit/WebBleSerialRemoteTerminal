@@ -1,0 +1,13 @@
+version: '2'
+
+services:
+
+  server-app:
+    build: ./server-app
+    ports:
+      - '3000:3000'
+    volumes:
+      - ./server-logs/:/opt/app/logs/
+
+volumes:
+  pgdata: {}
