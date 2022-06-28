@@ -1,7 +1,7 @@
 {
-  "name": "socket-chat-example",
+  "name": "WebBleSerialRemoteTerminal",
   "version": "0.0.1",
-  "description": "my first socket.io app",
+  "description": "Web Ble or Serial Remote Terminal app",
   "dependencies": {
     "express": "^4.14.0",
     "socket.io": "^4.5.0",
