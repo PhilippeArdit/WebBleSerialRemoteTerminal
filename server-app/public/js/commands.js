@@ -24,6 +24,25 @@ commands.push({
     evalJs: true,
     value: 'let date = new Date(); "@@SetDateTime " + date.getFullYear() + "," + ("0"+(1+date.getMonth())).slice(-2) + "," + ("0"+date.getDate()).slice(-2) + "," + ("0"+date.getHours()).slice(-2) + "," + ("0"+date.getMinutes()).slice(-2) + "," + ("0"+date.getSeconds()).slice(-2);'
 });
+
+commands.push({
+    name: 'SerialType',
+    description: 'Adjust Serial speed...',
+    evalJs: false,
+    value: '@@SerialType',
+    subCommands: [{
+        name: 'BLE',
+        description: '... for BLE devices',
+        evalJs: false,
+        value: 'BLE'
+    }, {
+        name: 'USB',
+        description: '... for USB devices',
+        evalJs: false,
+        value: 'USB'
+    }]
+});
+
 commands.push({
     name: 'SdCard',
     description: 'SdCard',
