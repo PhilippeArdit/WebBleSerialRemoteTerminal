@@ -26,7 +26,7 @@
 <body>
     <div class="mainAreaStyle">
         <div id="toolbar" class="topAreaStyle">
-            <div id="deviceName" class="name">Terminal</div>
+            <div id="deviceName" class="name"></div>
             <div id="myName">My name is :<input  id="myNameInput" type="text" aria-label="Input" autocomplete="off"></div>
             <div class="buttons">
                 <button id="connectButton" type="button" aria-label="Connect">
@@ -74,6 +74,7 @@
     </div>
 
     <script src="/socket.io/socket.io.js"></script>
+    <script src="js/supportedDevices.js"></script>
     <script src="js/uart.js"></script>
     <script src="js/commands.js"></script>
     <script src="js/client.js"></script>

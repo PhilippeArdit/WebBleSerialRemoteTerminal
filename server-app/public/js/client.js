@@ -22,7 +22,7 @@ var userId = ''; // The user name
 var bIsConnected = false; // Someone is connected to a device
 var bIAmConnected = false; // The current client is connectied to a device
 var uartOrBle; // The device connected
-UART.debug = 0; // Log level for BLE or Serial device
+UART.debug = 1; // Log level for BLE or Serial device (0 is no, 1 is some, 2 is more, 3 is all.)
 
 // -=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=
 // Submit actions
@@ -76,11 +76,12 @@ myNameInput.addEventListener('keypress', function (event) {
 // Terminal stuff
 // -=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=
 
-const defaultDeviceName = 'Terminal';
+const defaultDeviceName = 'Web Serial or BLE Terminal';
 const terminalAutoScrollingLimit = terminalContainer.offsetHeight / 2;
 const messagesAutoScrollingLimit = chatContainer.offsetHeight / 2;
 let isTerminalAutoScrolling = true;
 let isMessagesAutoScrolling = true;
+deviceName.textContent = defaultDeviceName;
 
 const scrollElement = (element) => {
   const scrollTop = element.scrollHeight - element.offsetHeight;
@@ -167,7 +168,10 @@ socket.on('termMsgOut', function (jsonObj) {
 });
 
 socket.on('termToggleConnected', function (jsonObj) {
-  appendToTerminal((jsonObj.userId == userId ? '' : jsonObj.userId + jsonObj.sep) + jsonObj.msg, 'in');
+  appendToTerminal((jsonObj.userId == userId ? '' : jsonObj.userId + jsonObj.sep) + jsonObj.msg + ' is ' + (bIsConnected ? '' : 'dis') + 'connected', 'in');
+  deviceName.textContent = bIsConnected ?
+    (jsonObj.userId == userId ? 'C' : jsonObj.userId + " is c") + 'onnected to ' + jsonObj.msg :
+    defaultDeviceName;
   setConnectedUI(bIsConnected);
 });
 
@@ -209,7 +213,6 @@ socket.timeout(1000).emit('whoIsConnected', '?')
 
 disconnectButton.addEventListener('click', () => {
   uartOrBle.close();
-  deviceName.textContent = defaultDeviceName;
 });
 
 // -=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=
@@ -311,31 +314,31 @@ connectButton.addEventListener('click', () => {
     document.body.appendChild(modalDiv);
     document.body.appendChild(menu);
     return;
+  } else {
+    UART.connect(function (connection) {
+      if (!connection) throw "Error!";
+
+      connection.on('data', function (msg) {
+        socket.emit('termDataIn', msg.replace('\r\n', '\n'));
+      });
+
+      function _setConnectedUI(b) {
+        bIAmConnected = bIsConnected = b;
+        socket.emit('isTermConnected', b);
+        socket.emit('termToggleConnected', connection.deviceName);
+      }
+
+      connection.on('open', function () {
+        _setConnectedUI(true);
+      });
+
+      connection.on('close', function () {
+        _setConnectedUI(false);
+      });
+
+      uartOrBle = connection;
+    });
   }
-
-  UART.connect(function (connection) {
-    if (!connection) throw "Error!";
-
-    connection.on('data', function (msg) {
-      socket.emit('termDataIn', msg.replace('\r\n', '\n'));
-    });
-
-    function _setConnectedUI(b) {
-      bIAmConnected = bIsConnected = b;
-      socket.emit('termToggleConnected', 'device ' + (b ? '' : 'dis') + 'connected');
-      socket.emit('isTermConnected', b);
-    }
-
-    connection.on('open', function () {
-      _setConnectedUI(true);
-    });
-
-    connection.on('close', function () {
-      _setConnectedUI(false);
-    });
-
-    uartOrBle = connection;
-  });
 });
 
 // -=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=

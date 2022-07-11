@@ -1,8 +1,11 @@
 /*
 --------------------------------------------------------------------
 Web Bluetooth / Web Serial Interface library for Nordic UART
-                     Copyright 2021 Gordon Williams (gw@pur3.co.uk)
-                     https://github.com/espruino/EspruinoWebTools
+Copyright 2021 Gordon Williams (gw@pur3.co.uk)
+https://github.com/espruino/EspruinoWebTools
+--------------------------------------------------------------------
+Philippe Ardit - 2022 : adaptations to be able to connect to
+different devices
 --------------------------------------------------------------------
 This Source Code Form is subject to the terms of the Mozilla Public
 License, v. 2.0. If a copy of the MPL was not distributed with this
@@ -13,16 +16,23 @@ to interact with either a serial or BLE device.
 
 Usage:
 
-  UART.connect(function(connection) {
-    if (!connection) throw "Error!";
-    connection.on('data', function(d) { ... });
-    connection.on('close', function() { ... });
-    connection.write("1+2\n", function() {
-      connection.close();
-    });
-  });
+  UART.debug = 3; // Log level for BLE or Serial device (0 is no, 1 is some, 2 is more, 3 is all.)
 
+  if (!UART.checkIfSupported()) {
+    alert('Browser not supported');
+  } else {
+    UART.connect(function(connection) {
+      if (!connection) throw "Error!";
+      connection.on('data', function(d) { ... });
+      connection.on('open', function() { ... });
+      connection.on('close', function() { ... });
+      connection.write("1+2\n", function() {
+        connection.close();
+      });
+    });
+  }
 */
+
 (function (root, factory) {
   if (typeof define === 'function' && define.amd) {
     // AMD. Register as an anonymous module.
@@ -72,6 +82,7 @@ Usage:
     name: "Web Bluetooth",
     description: "Bluetooth LE devices",
     svg: '<svg xmlns="http://www.w3.org/2000/svg" width="48" height="48" viewBox="0 0 24 24"><path d="M0 0h24v24H0z" fill="none"/><path d="M17.71 7.71L12 2h-1v7.59L6.41 5 5 6.41 10.59 12 5 17.59 6.41 19 11 14.41V22h1l5.71-5.71-4.3-4.29 4.3-4.29zM13 5.83l1.88 1.88L13 9.59V5.83zm1.88 10.46L13 18.17v-3.76l1.88 1.88z" fill="#ffffff"/></svg>',
+
     isSupported: function () {
       if (navigator.platform.indexOf("Win") >= 0 &&
         (navigator.userAgent.indexOf("Chrome/54") >= 0 ||
@@ -90,28 +101,18 @@ Usage:
         return "This Web Browser doesn't support Web Bluetooth.\nPlease see https://www.espruino.com/Puck.js+Quick+Start";
       }
     },
+
     connect: function (connection, callback) {
-      var NORDIC_SERVICE = "6e400001-b5a3-f393-e0a9-e50e24dcca9e";
-      var EXOMO_SERVICE = "0000ffe0-0000-1000-8000-00805f9b34fb";
-      var IBS_SERVICE = "55518806-FA8F-4A33-931E-DD50722335CA";
-
-      var NORDIC_TX = "6e400002-b5a3-f393-e0a9-e50e24dcca9e";
-      var NORDIC_RX = "6e400003-b5a3-f393-e0a9-e50e24dcca9e";
-      var EXOMO_TX = "0000ffe1-0000-1000-8000-00805f9b34fb";
-      var EXOMO_RX = "0000ffe1-0000-1000-8000-00805f9b34fb";
-      var IBS_RX = "00035b03-58e6-07dd-021a-08123a000301";
-      var IBS_TX = "00035b03-58e6-07dd-021a-08123a0003ff";
-
+      var chosenService = undefined;
       var DEFAULT_CHUNKSIZE = 20;
+      var btDevice = undefined;
       var btServer = undefined;
       var btService;
-      var connectionDisconnectCallback;
       var txCharacteristic;
       var rxCharacteristic;
       var txDataQueue = [];
       var flowControlXOFF = false;
       var chunkSize = DEFAULT_CHUNKSIZE;
-      var deviceName = '';
 
       connection.close = function (callback) {
         connection.isOpening = false;
@@ -175,105 +176,142 @@ Usage:
         }
       };
 
-      navigator.bluetooth.requestDevice({
-        filters: [{
-            namePrefix: 'Exomo'
-          },
-          {
-            namePrefix: 'Puck.js'
-          },
-          {
-            namePrefix: 'Pixl.js'
-          },
-          {
-            namePrefix: 'MDBT42Q'
-          },
-          {
-            namePrefix: 'Bangle'
-          },
-          {
-            namePrefix: 'RuuviTag'
-          },
-          {
-            namePrefix: 'iTracker'
-          },
-          {
-            namePrefix: 'Thingy'
-          },
-          {
-            namePrefix: 'Espruino'
-          },
-          {
-            services: [NORDIC_SERVICE, EXOMO_SERVICE]
-          }
-        ],
-        optionalServices: [NORDIC_SERVICE, EXOMO_SERVICE],
-        acceptAllDevices: false
-      }).then(function (device) {
-        deviceName = device.name;
-        log(1, 'Device Name:       ' + device.name);
-        log(1, 'Device ID:         ' + device.id);
-        // Was deprecated: Should use getPrimaryServices for this in future
-        //log('BT>  Device UUIDs:      ' + device.uuids.join('\n' + ' '.repeat(21)));
-        device.addEventListener('gattserverdisconnected', function () {
-          log(1, "Disconnected (gattserverdisconnected)");
-          connection.close();
+      // List of service IDs
+      var tmpServiceList = [];
+      bleServiceDescriptionList.forEach(servDescr => {
+        tmpServiceList.push({
+          services: [servDescr.service]
         });
-        return device.gatt.connect();
-      }).then(function (server) {
-        log(1, "Connected");
-        btServer = server;
-        return server.getPrimaryService(EXOMO_SERVICE);
-      }).then(function (service) {
-        log(2, "Got service");
-        btService = service;
-        return btService.getCharacteristic(EXOMO_RX);
-      }).then(function (characteristic) {
-        rxCharacteristic = characteristic;
-        log(2, "RX characteristic:" + JSON.stringify(rxCharacteristic));
-        rxCharacteristic.addEventListener('characteristicvaluechanged', function (event) {
-          var dataview = event.target.value;
-          if (dataview.byteLength > chunkSize) {
-            log(2, "Received packet of length " + dataview.byteLength + ", increasing chunk size");
-            chunkSize = dataview.byteLength;
-          }
-          if (uart.flowControl) {
-            for (var i = 0; i < dataview.byteLength; i++) {
-              var ch = dataview.getUint8(i);
-              if (ch == 17) { // XON
-                log(2, "XON received => resume upload");
-                flowControlXOFF = false;
-              }
-              if (ch == 19) { // XOFF
-                log(2, "XOFF received => pause upload");
-                flowControlXOFF = true;
+      });
+
+      // Because we have potentioally several candidates as BLE devices
+      // and because no API can list primary services for a given device
+      async function findPrimaryService(bleServiceDescriptionList, device) {
+        log(1, 'Getting the right device and primary service...');
+
+        let promise = new Promise((resolve, reject) => {
+          bleServiceDescriptionList.forEach(async servDescr => {
+            try {
+              log(3, 'Temporary connecting to GATT Server...');
+              const server = await device.gatt.connect();
+
+              log(3, 'Trying getPrimaryService for ' + servDescr.name + ' : ' + servDescr.service);
+              let service = await server.getPrimaryService(servDescr.service);
+              log(2, 'Got primary service for ' + servDescr.name + ' : ' + servDescr.service);
+
+              log(3, 'Trying getCharacteristic for ' + servDescr.name + ' : ' + servDescr.rx);
+              let characteristic = await service.getCharacteristic(servDescr.rx); // may crash here
+              log(2, 'Got characteristic for ' + servDescr.name + ' : ' + servDescr.rx);
+
+              resolve(servDescr);
+            } catch (error) {
+              log(3, 'ERROR (' + servDescr.name + ') ' + error);
+            }
+          })
+        });
+
+        let chosenService = await promise;
+        log(2, 'Chosen service : ' + JSON.stringify(chosenService))
+        return chosenService;
+      }
+
+      // Chosse, connect and start notifications
+      log(1, 'Requesting any Bluetooth Device...');
+      navigator.bluetooth.requestDevice({
+          filters: tmpServiceList,
+          acceptAllDevices: false
+        })
+
+        .then(device => {
+          connection.deviceName = '"' + device.name + '" (BLE)';
+          log(1, 'Device name : ' + connection.deviceName);
+          log(2, 'Device ID :   ' + device.id);
+
+          device.addEventListener('gattserverdisconnected', function () {
+            log(1, "Disconnected (gattserverdisconnected)");
+            connection.close();
+          });
+
+          btDevice = device;
+          return findPrimaryService(bleServiceDescriptionList, device);
+        })
+
+        .then(servDescr => {
+          chosenService = servDescr;
+          log(1, 'Connecting to GATT Server...');
+          return btDevice.gatt.connect();
+        })
+
+        .then(server => {
+          btServer = server;
+          log(1, 'Getting device primary service...');
+          return btServer.getPrimaryService(chosenService.service);
+        })
+
+        .then(service => {
+          log(1, "Got service");
+          btService = service;
+
+          log(1, "Getting TX characteristic...");
+          return btService.getCharacteristic(chosenService.tx);
+        })
+
+        .then(characteristic => {
+          log(1, "Got TX characteristic");
+          txCharacteristic = characteristic;
+
+          log(1, "Getting RX characteristic...");
+          return btService.getCharacteristic(chosenService.rx);
+        })
+
+        .then(characteristic => {
+          log(1, "Got RX characteristic");
+          rxCharacteristic = characteristic;
+
+          log(1, "Add eventListener to RX characteristic...");
+          rxCharacteristic.addEventListener('characteristicvaluechanged', function (event) {
+            var dataview = event.target.value;
+            if (dataview.byteLength > chunkSize) {
+              log(2, "Received packet of length " + dataview.byteLength + ", increasing chunk size");
+              chunkSize = dataview.byteLength;
+            }
+            if (uart.flowControl) {
+              for (var i = 0; i < dataview.byteLength; i++) {
+                var ch = dataview.getUint8(i);
+                if (ch == 17) { // XON
+                  log(2, "XON received => resume upload");
+                  flowControlXOFF = false;
+                }
+                if (ch == 19) { // XOFF
+                  log(2, "XOFF received => pause upload");
+                  flowControlXOFF = true;
+                }
               }
             }
-          }
-          var str = ab2str(dataview.buffer);
-          log(3, "Received " + JSON.stringify(str));
-          connection.emit('data', str);
+            var str = ab2str(dataview.buffer);
+            log(3, "Received " + JSON.stringify(str));
+            connection.emit('data', str);
+          });
+
+          return rxCharacteristic.startNotifications(); // With DF Robot device : "NotSupportedError: GATT Error: Not supported."
+        })
+
+        .then(function () {
+          connection.txInProgress = false;
+          connection.isOpen = true;
+          connection.isOpening = false;
+          isBusy = false;
+          queue = [];
+          callback(connection);
+          connection.emit('open');
+          // if we had any writes queued, do them now
+          connection.write();
+        })
+
+        .catch(error => {
+          log(1, 'ERROR: ' + error);
+          connection.close();
         });
-        return rxCharacteristic.startNotifications();
-      }).then(function () {
-        return btService.getCharacteristic(EXOMO_TX);
-      }).then(function (characteristic) {
-        txCharacteristic = characteristic;
-        log(2, "TX characteristic:" + JSON.stringify(txCharacteristic));
-      }).then(function () {
-        connection.txInProgress = false;
-        connection.isOpen = true;
-        connection.isOpening = false;
-        isBusy = false;
-        queue = [];
-        callback(connection);
-        connection.emit('open');
-        // if we had any writes queued, do them now
-        connection.write();
-      }).catch(function (error) {
-        log(1, 'ERROR: ' + error);
-        connection.close();
-      });
       return connection;
     }
   };
@@ -284,6 +322,7 @@ Usage:
     name: "Web Serial",
     description: "USB connected devices",
     svg: '<svg xmlns="http://www.w3.org/2000/svg" width="48" height="48" viewBox="0 0 24 24"><path d="M0 0h24v24H0z" fill="none"/><path d="M15 7v4h1v2h-3V5h2l-3-4-3 4h2v8H8v-2.07c.7-.37 1.2-1.08 1.2-1.93 0-1.21-.99-2.2-2.2-2.2-1.21 0-2.2.99-2.2 2.2 0 .85.5 1.56 1.2 1.93V13c0 1.11.89 2 2 2h3v3.05c-.71.37-1.2 1.1-1.2 1.95 0 1.22.99 2.2 2.2 2.2 1.21 0 2.2-.98 2.2-2.2 0-.85-.49-1.58-1.2-1.95V15h3c1.11 0 2-.89 2-2v-2h1V7h-4z" fill="#ffffff"/></svg>',
+
     isSupported: function () {
       if (!navigator.serial)
         return "No navigator.serial - Web Serial not enabled";
@@ -292,11 +331,11 @@ Usage:
         return "Serving off HTTP (not HTTPS) - Web Serial not enabled";
       return true;
     },
+
     connect: function (connection, callback) {
       var serialPort;
       var reader;
       var writer;
-      var deviceName = '';
 
       function disconnected() {
         connection.isOpening = false;
@@ -306,46 +345,62 @@ Usage:
           connection.emit('close');
         }
       }
-      // TODO: Pass USB vendor and product ID filter when supported by Chrome.
-      navigator.serial.requestPort({}).then(function (port) {
-        log(1, "Connecting to serial port");
-        serialPort = port;
-        deviceName = JSON.stringify(port.getInfo());
-        log(1, deviceName);
-        return port.open({
-          baudRate: 115200
-        });
-      }).then(function () {
-        function readLoop() {
-          reader = serialPort.readable.getReader();
-          reader.read().then(function ({
-            value,
-            done
-          }) {
-            reader.releaseLock();
-            if (value) {
-              var str = ab2str(value.buffer);
-              log(3, "Received " + JSON.stringify(str));
-              connection.emit('data', str);
+
+      navigator.serial.requestPort({
+          SerialFilters
+        }).then(function (port) {
+          log(1, "Connecting to serial port");
+          serialPort = port;
+          const serialInfo = port.getInfo();
+          connection.deviceName = "Unknown Serial device (" + serialInfo.usbVendorId + "/" + serialInfo.usbProductId + ")";
+          SerialFilters.every(serialFilter => {
+            if (serialFilter.usbProductId == serialInfo.usbProductId &&
+              serialFilter.usbVendorId == serialInfo.usbVendorId) {
+              connection.deviceName = '"' + serialFilter.name + '" (serial)';
+              return false;
             }
-            if (done) {
-              disconnected();
-            } else {
-              readLoop();
-            }
+            return true;
           });
-        }
-        readLoop();
-        log(1, "Serial connected. Receiving data...");
-        connection.txInProgress = false;
-        connection.isOpen = true;
-        connection.isOpening = false;
-        callback(connection);
-        connection.emit('open');
-      }).catch(function (error) {
-        log(0, 'ERROR: ' + error);
-        disconnected();
-      });
+          log(1, 'Device name : ' + connection.deviceName);
+          return port.open({
+            baudRate: 115200
+          });
+        })
+
+        .then(function () {
+          function readLoop() {
+            reader = serialPort.readable.getReader();
+            reader.read().then(function ({
+              value,
+              done
+            }) {
+              reader.releaseLock();
+              if (value) {
+                var str = ab2str(value.buffer);
+                log(3, "Received " + JSON.stringify(str));
+                connection.emit('data', str);
+              }
+              if (done) {
+                disconnected();
+              } else {
+                readLoop();
+              }
+            });
+          }
+          readLoop();
+          log(1, "Serial connected. Receiving data...");
+          connection.txInProgress = false;
+          connection.isOpen = true;
+          connection.isOpening = false;
+          callback(connection);
+          connection.emit('open');
+        })
+
+        .catch(function (error) {
+          log(0, 'ERROR: ' + error);
+          disconnected();
+        });
+
       connection.close = function (callback) {
         if (reader) reader.cancel();
         if (reader) reader.releaseLock();
@@ -353,6 +408,7 @@ Usage:
         serialPort = undefined;
         disconnected();
       };
+
       connection.write = function (data, callback) {
         writer = serialPort.writable.getWriter();
         // TODO: progress?
@@ -556,40 +612,33 @@ Usage:
   var uart = {
     /// Are we writing debug information? 0 is no, 1 is some, 2 is more, 3 is all.
     debug: 1,
+
     /// Should we use flow control? Default is true
     flowControl: true,
+
     /// Used internally to write log information - you can replace this with your own function
     log: function (level, s) {
-      if (level <= this.debug) console.log("<UART> " + s)
+      if (level <= this.debug)
+        console.log("> " + s)
     },
+
     /// Called with the current send progress or undefined when done - you can replace this with your own function
     writeProgress: function (charsSent, charsTotal) {
-      //console.log(charsSent + "/" + charsTotal);
+      // console.log(charsSent + "/" + charsTotal);
     },
+
     /// Expose checkIfSupported function
     checkIfSupported: checkIfSupported,
+
     /// Connect to a new device - this creates a separate connection to the one `write` and `eval` use. 
     connect: connect,
+
     /// Write to a device and call back when the data is written.  Creates a connection if it doesn't exist
     write: write,
+
     /// Evaluate an expression and call cb with the result. Creates a connection if it doesn't exist
     eval: evaluate,
-    /// Write the current time to the device
-    setTime: function (cb) {
-      var d = new Date();
-      var cmd = 'setTime(' + (d.getTime() / 1000) + ');';
-      // in 1v93 we have timezones too
-      cmd += 'if (E.setTimeZone) E.setTimeZone(' + d.getTimezoneOffset() / -60 + ');\n';
-      write(cmd, cb);
-    },
-    /// Did `write` and `eval` manage to create a connection?
-    isConnected: function () {
-      return connection !== undefined;
-    },
-    /// get the connection used by `write` and `eval`
-    getConnection: function () {
-      return connection;
-    },
+
     /// Close the connection used by `write` and `eval`
     close: function () {
       if (connection)
