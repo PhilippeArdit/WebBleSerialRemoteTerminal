@@ -7,13 +7,22 @@ const app = express();
 // -=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=
 // Define HTTP server and port
 // -=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=
-const https = require('https');
-const fs = require('fs');
-const options = {
-  key: fs.readFileSync('server.key'),
-  cert: fs.readFileSync('server.cer')
-};
-const server = https.createServer(options, app);
+//const httpModule = 'https';
+const httpModule = 'http';
+var server;
+const httpServer = require(httpModule);
+if (httpModule == 'https') {
+
+  const fs = require('fs');
+  const options = {
+    key: fs.readFileSync('server.key'),
+    cert: fs.readFileSync('server.cer')
+  };
+  server = httpServer.createServer(options, app);
+}
+else
+  server = httpServer.createServer(app);
+
 const port = process.env.PORT || 3000;
 
 // -=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=

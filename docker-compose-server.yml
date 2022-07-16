@@ -4,6 +4,7 @@ services:
 
   server-app:
     build: ./server-app
+    network_mode: bridge
     ports:
       - '3000:3000'
     volumes:

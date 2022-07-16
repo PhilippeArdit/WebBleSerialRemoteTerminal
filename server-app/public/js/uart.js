@@ -105,11 +105,6 @@ Usage:
     connect: function (connection, callback) {
       var chosenService = undefined;
       var DEFAULT_CHUNKSIZE = 20;
-      var btDevice = undefined;
-      var btServer = undefined;
-      var btService;
-      var txCharacteristic;
-      var rxCharacteristic;
       var txDataQueue = [];
       var flowControlXOFF = false;
       var chunkSize = DEFAULT_CHUNKSIZE;
@@ -122,11 +117,12 @@ Usage:
         } else {
           if (callback) callback(null);
         }
-        if (btServer) {
-          btServer.disconnect();
-          btServer = undefined;
-          txCharacteristic = undefined;
-          rxCharacteristic = undefined;
+        if (chosenService && chosenService.server) {
+          chosenService.server.disconnect();
+          chosenService.server = undefined;
+          chosenService.service = undefined;
+          chosenService.txCharacteristic = undefined;
+          chosenService.rxCharacteristic = undefined;
         }
       };
 
@@ -159,7 +155,7 @@ Usage:
           }
           connection.txInProgress = true;
           log(2, "Sending " + JSON.stringify(chunk));
-          txCharacteristic.writeValue(str2ab(chunk)).then(function () {
+          chosenService.txCharacteristic.writeValue(str2ab(chunk)).then(function () {
             log(3, "Sent");
             if (!txItem.data) {
               txDataQueue.shift(); // remove this element
@@ -179,8 +175,13 @@ Usage:
       // List of service IDs
       var tmpServiceList = [];
       bleServiceDescriptionList.forEach(servDescr => {
+        servDescr.server = undefined;
+        servDescr.service = undefined;
+        servDescr.txCharacteristic = undefined;
+        servDescr.rxCharacteristic = undefined;
+        
         tmpServiceList.push({
-          services: [servDescr.service]
+          services: [servDescr.serviceUUID]
         });
       });
 
@@ -195,14 +196,18 @@ Usage:
               log(3, 'Temporary connecting to GATT Server...');
               const server = await device.gatt.connect();
 
-              log(3, 'Trying getPrimaryService for ' + servDescr.name + ' : ' + servDescr.service);
-              let service = await server.getPrimaryService(servDescr.service);
-              log(2, 'Got primary service for ' + servDescr.name + ' : ' + servDescr.service);
+              log(3, 'Trying getPrimaryService for ' + servDescr.name + ' : ' + servDescr.serviceUUID);
+              const service = await server.getPrimaryService(servDescr.serviceUUID);
+              log(2, 'Got primary service for ' + servDescr.name + ' : ' + servDescr.serviceUUID);
 
-              log(3, 'Trying getCharacteristic for ' + servDescr.name + ' : ' + servDescr.rx);
-              let characteristic = await service.getCharacteristic(servDescr.rx); // may crash here
-              log(2, 'Got characteristic for ' + servDescr.name + ' : ' + servDescr.rx);
+              log(3, 'Trying getCharacteristic for ' + servDescr.name + ' : ' + servDescr.txUUID);
+              const txCharacteristic = await service.getCharacteristic(servDescr.txUUID); // may crash here
+              log(2, 'Got characteristic for ' + servDescr.name + ' : ' + servDescr.txUUID);
 
+              // If we are here, it is because we found the right device/service
+              servDescr.server = server;
+              servDescr.service = service;
+              servDescr.txCharacteristic = txCharacteristic;
               resolve(servDescr);
             } catch (error) {
               log(3, 'ERROR (' + servDescr.name + ') ' + error);
@@ -211,7 +216,7 @@ Usage:
         });
 
         let chosenService = await promise;
-        log(2, 'Chosen service : ' + JSON.stringify(chosenService))
+        log(1, 'Chosen service : ' + chosenService.name);
         return chosenService;
       }
 
@@ -232,44 +237,20 @@ Usage:
             connection.close();
           });
 
-          btDevice = device;
           return findPrimaryService(bleServiceDescriptionList, device);
         })
 
         .then(servDescr => {
           chosenService = servDescr;
-          log(1, 'Connecting to GATT Server...');
-          return btDevice.gatt.connect();
-        })
-
-        .then(server => {
-          btServer = server;
-          log(1, 'Getting device primary service...');
-          return btServer.getPrimaryService(chosenService.service);
-        })
-
-        .then(service => {
-          log(1, "Got service");
-          btService = service;
-
-          log(1, "Getting TX characteristic...");
-          return btService.getCharacteristic(chosenService.tx);
-        })
-
-        .then(characteristic => {
-          log(1, "Got TX characteristic");
-          txCharacteristic = characteristic;
-
-          log(1, "Getting RX characteristic...");
-          return btService.getCharacteristic(chosenService.rx);
+          return chosenService.service.getCharacteristic(servDescr.rxUUID);
         })
 
         .then(characteristic => {
           log(1, "Got RX characteristic");
-          rxCharacteristic = characteristic;
+          chosenService.rxCharacteristic = characteristic;
 
           log(1, "Add eventListener to RX characteristic...");
-          rxCharacteristic.addEventListener('characteristicvaluechanged', function (event) {
+          chosenService.rxCharacteristic.addEventListener('characteristicvaluechanged', function (event) {
             var dataview = event.target.value;
             if (dataview.byteLength > chunkSize) {
               log(2, "Received packet of length " + dataview.byteLength + ", increasing chunk size");
@@ -293,7 +274,7 @@ Usage:
             connection.emit('data', str);
           });
 
-          return rxCharacteristic.startNotifications(); // With DF Robot device : "NotSupportedError: GATT Error: Not supported."
+          return chosenService.rxCharacteristic.startNotifications(); // With DF Robot device : "NotSupportedError: GATT Error: Not supported."
         })
 
         .then(function () {
