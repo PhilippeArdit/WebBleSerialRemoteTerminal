@@ -68,6 +68,7 @@ body {
 
 .terminalFormAreaStyle {
     grid-area: terminalFormArea;
+    align-items: center;
 }
 
 .chatContainerWrapper {
@@ -77,6 +78,7 @@ body {
 
 .chatFormAreaStyle {
     grid-area: chatFormArea;
+    align-items: center;
 }
 
 /*---------------------------------------------------------*/
@@ -87,6 +89,11 @@ body {
     padding-right: 1rem;
     margin: 0.25rem;
     user-select: none;
+}
+
+#toolbar {
+    align-items: center;
+    overflow: hidden;
 }
 
 #toolbar .buttons {
@@ -111,6 +118,7 @@ button {
     border-radius: 10px;
     outline: none;
     color: #fff;
+    height: 29px;
 }
 
 button:disabled {
@@ -119,10 +127,15 @@ button:disabled {
 
 input {
     border: none;
-    padding: 0 1rem;
     flex-grow: 1;
     border-radius: 2rem;
     margin: 0.25rem;
+    padding: 0 1rem;
+}
+
+#myName input {
+    padding: 0;
+    width:50%;
 }
 
 *:focus {
@@ -135,7 +148,16 @@ input::placeholder {
 
 #myName {
     color: rgba(0, 0, 0, 0.54);
-    font-size: 11px;
+}
+
+@media only screen and (max-width: 768px) {
+
+    /* For mobile phones: */
+    #toolbar .name,
+    #myName,
+    #myName input::placeholder {
+        font-size: 60%;
+    }
 }
 
 /*---------------------------------------------------------*/
