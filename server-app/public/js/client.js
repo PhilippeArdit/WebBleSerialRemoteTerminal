@@ -22,7 +22,7 @@ var userId = ''; // The user name
 var bIsConnected = false; // Someone is connected to a device
 var bIAmConnected = false; // The current client is connectied to a device
 var uartOrBle; // The device connected
-UART.debug = 1; // Log level for BLE or Serial device (0 is no, 1 is some, 2 is more, 3 is all.)
+UART.debug = 3; // Log level for BLE or Serial device (0 is no, 1 is some, 2 is more, 3 is all.)
 
 // -=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=
 // Submit actions

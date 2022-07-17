@@ -119,8 +119,10 @@ Usage:
         }
         if (chosenService && chosenService.server) {
           chosenService.server.disconnect();
+          //chosenService.device.gatt.disconnect();
           chosenService.server = undefined;
           chosenService.service = undefined;
+          chosenService.device = undefined;
           chosenService.txCharacteristic = undefined;
           chosenService.rxCharacteristic = undefined;
         }
@@ -175,42 +177,49 @@ Usage:
       // List of service IDs
       var tmpServiceList = [];
       bleServiceDescriptionList.forEach(servDescr => {
+        servDescr.device = undefined;
         servDescr.server = undefined;
         servDescr.service = undefined;
         servDescr.txCharacteristic = undefined;
         servDescr.rxCharacteristic = undefined;
-        
+
         tmpServiceList.push({
           services: [servDescr.serviceUUID]
         });
       });
 
+      // Create a sleep() function.js
+      const sleep = (delay) => new Promise((resolve) => setTimeout(resolve, delay))
+
       // Because we have potentioally several candidates as BLE devices
       // and because no API can list primary services for a given device
       async function findPrimaryService(bleServiceDescriptionList, device) {
-        log(1, 'Getting the right device and primary service...');
+        
+        log(1, 'Connecting to GATT Server for ' + device.name + '...');
+        const server = await device.gatt.connect();
+        await sleep(1000);
 
         let promise = new Promise((resolve, reject) => {
           bleServiceDescriptionList.forEach(async servDescr => {
             try {
-              log(3, 'Temporary connecting to GATT Server...');
-              const server = await device.gatt.connect();
-
-              log(3, 'Trying getPrimaryService for ' + servDescr.name + ' : ' + servDescr.serviceUUID);
+              log(2, 'Trying getPrimaryService for ' + servDescr.name + ' : ' + servDescr.serviceUUID);
               const service = await server.getPrimaryService(servDescr.serviceUUID);
-              log(2, 'Got primary service for ' + servDescr.name + ' : ' + servDescr.serviceUUID);
+              log(1, 'Got primary service for ' + servDescr.name + ' : ' + servDescr.serviceUUID);
+              await sleep(1000);
 
-              log(3, 'Trying getCharacteristic for ' + servDescr.name + ' : ' + servDescr.txUUID);
+              log(2, 'Trying getCharacteristic for ' + servDescr.name + ' : ' + servDescr.txUUID);
               const txCharacteristic = await service.getCharacteristic(servDescr.txUUID); // may crash here
-              log(2, 'Got characteristic for ' + servDescr.name + ' : ' + servDescr.txUUID);
+              log(1, 'Got characteristic for ' + servDescr.name + ' : ' + servDescr.txUUID);
+              await sleep(1000);
 
               // If we are here, it is because we found the right device/service
+              servDescr.device = device;
               servDescr.server = server;
               servDescr.service = service;
               servDescr.txCharacteristic = txCharacteristic;
               resolve(servDescr);
             } catch (error) {
-              log(3, 'ERROR (' + servDescr.name + ') ' + error);
+              log(2, 'ERROR (' + servDescr.name + ') ' + error);
             }
           })
         });
@@ -249,7 +258,7 @@ Usage:
           log(1, "Got RX characteristic");
           chosenService.rxCharacteristic = characteristic;
 
-          log(1, "Add eventListener to RX characteristic...");
+          log(1, "addEventListener to RX characteristic...");
           chosenService.rxCharacteristic.addEventListener('characteristicvaluechanged', function (event) {
             var dataview = event.target.value;
             if (dataview.byteLength > chunkSize) {
