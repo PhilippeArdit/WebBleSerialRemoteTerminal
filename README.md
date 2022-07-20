@@ -4,13 +4,14 @@ Here I combine in an nodeJs web app the power of the BLE/Serial Web API and the 
 
 ## Web app usage
 
-- debug : chrome://device-log/
-- several users can load the sape page : <https://localhost:3000/>
+- using the "Google Chrome" browser on a computer or the "WebBLE" app on iOS smartphone, several users can load the sape page : <https://localhost:3000/>
 - they can set their name and chat with all others
 - one user can connect to its BLE or Serial device (Exomo Copilot, HM-10 BLE devices, Espruino, PuckJS, Bangle.js)
 - all users can see who is connected to a device, can write text to it and read the its response
 - all texts are log in a JSON format on the console and in server-logs/app.log file
 - all HTTP access are log in server-logs/access.log file
+
+![Image](./webBLESerialRemoteTerminalDemo.png)
 
 ## Sources of inspiration & resources
 
