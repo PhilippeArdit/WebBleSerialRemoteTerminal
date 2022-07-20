@@ -4,10 +4,9 @@ ENV PROJECT_ROOT /opt/app
 
 RUN apt-get update \
     && rm -rf /var/lib/apt/lists/* \
+    && npm install -g npm \
     && npm install -g pm2 \
-    && npm install -g socket.io \
-    && npm install -g uuid@latest \
-    && npm install -g npm@8.14.0
+    && npm install -g socket.io
 
 RUN mkdir -p /tmp/app
 

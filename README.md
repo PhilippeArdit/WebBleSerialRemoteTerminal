@@ -2,13 +2,15 @@
 
 Here I combine in an nodeJs web app the power of the BLE/Serial Web API and the principle of HTTP sockets to allow an embedded systems administrator to help a user maintain their device remotely.
 
-Usage:
+## Web app usage
 
-- each user connects to the same server/page;
+- debug : chrome://device-log/
+- several users can load the sape page : <https://localhost:3000/>
 - they can set their name and chat with all others
-- one user can connect to its BLE or Serial device (Exomo Copilot, Espruino, PuckJS, ...)
-- all users can write text to the same device's terminal
-- all texts are log in server-logs/app.log file
+- one user can connect to its BLE or Serial device (Exomo Copilot, HM-10 BLE devices, Espruino, PuckJS, Bangle.js)
+- all users can see who is connected to a device, can write text to it and read the its response
+- all texts are log in a JSON format on the console and in server-logs/app.log file
+- all HTTP access are log in server-logs/access.log file
 
 ## Sources of inspiration & resources
 
@@ -22,17 +24,40 @@ This is a mix of the following resources :
 - Espruino Web IDE : <https://www.espruino.com/ide/>
 - Serial Terminal : <https://googlechromelabs.github.io/serial-terminal/>
 
+## TODO
+ - inject logs in a MongoDB database for further analysis 
+
+ ## On a production docker server
+
+ ### Start
+
+        docker-compose -f docker-compose-server.yml up -d
+
+### Clean, recreate and restart in a production docker server
+        docker stop webbleserialremoteterminal_server-app_1 \
+        && docker rm webbleserialremoteterminal_server-app_1  \
+        && docker image rm webbleserialremoteterminal_server-app:latest \
+        && docker volume rm webbleserialremoteterminal_pgdata \
+        && docker-compose -f docker-compose-server.yml up -d
+
 ## Developer's notes
 
 ### Docker and Development Environments on MacOS
 
 - Setting up for Node.js on MacOS : <https://www.activelamp.com/blog/devops/docker-and-development-environments-setting-up-for-nodejs-on-osx>
 
-### Create a self signed certificat
+### Create and use a self signed certificat
 
-- for <https://localhost:3000/>
-- ok with Chrome
-- subject=C = FR, ST = Herault, L = Mudaison, O = mycompany, CN = localhost, emailAddress = myemail
+The final URL must use HTTPS protocol for the WEB BLE/Serial API to work.
+To do that, you can serve this web app behind a proxy serving the result with HTTPS or enable it directly in the app.
+
+To enable https in this node.js app :
+
+- edit server-app/server.js and uncomment this line
+
+        // const httpModule = 'https';
+
+- create a self signed certificate
 
         cd server-app
 
@@ -48,34 +73,29 @@ This is a mix of the following resources :
 
 ### Start the server
 
-- docker-sync-stack start
+        docker-sync-stack start
 
 or
 
-- docker-sync start
-- docker-compose up
+        docker-sync start \
+        && docker-compose up
 
 ### Stop and clean the server
 
-- Ctrl+C
-- docker-sync-stack clean
-- docker image rm webbleserialremoteterminal_server-app
+        Ctrl+C
+        docker-sync-stack clean \
+        && docker image rm webbleserialremoteterminal_server-app
 
 or
 
-- Ctrl+C
-- docker-sync clean
-- docker-compose down
-- docker image rm webbleserialremoteterminal_server-app
+        Ctrl+C
+        docker-sync clean \
+        && docker-compose down \
+        && docker image rm webbleserialremoteterminal_server-app
 
-### Restart the server
+### Stop, clean and restart the server
 
-- Ctrl+C
-- docker-sync-stack clean && docker image rm webbleserialremoteterminal_server-app && docker-sync-stack start
-
-### Web app usage
-
-- debug : chrome://device-log/
-- open one or more browsers to <http://localhost:3000/>
-- each browser can chat with all others
-- anything will be log in server-logs/app.log file
+        Ctrl+C
+        docker-sync-stack clean \
+        && docker image rm webbleserialremoteterminal_server-app \
+        && docker-sync-stack start

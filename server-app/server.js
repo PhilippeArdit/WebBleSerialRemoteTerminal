@@ -13,8 +13,8 @@ const app = express();
 // -=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=
 
 // Change this following line to allow self hosted HTTPS (after creating server.key and server.cer files)
-// const httpModule = 'https';
 const httpModule = 'http';
+// const httpModule = 'https';
 
 var server;
 const httpServer = require(httpModule);
@@ -110,7 +110,7 @@ app.get('/', (req, res) => {
 // io.sockets.emit : sends to all client
 
 io.on('connection', (socket) => {
-  var userId = socket.handshake.query.t /* + socket.handshake.issued */ ;
+  var userId = socket.handshake.query.t /* + socket.handshake.issued */;
 
   // Send some informations to new client
   socket.emit('connectInfo', {
