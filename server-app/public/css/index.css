@@ -130,11 +130,10 @@ input {
     flex-grow: 1;
     border-radius: 2rem;
     margin: 0.25rem;
-    padding: 0 1rem;
+    padding: 0 0.5rem;
 }
 
 #myName input {
-    padding: 0;
     width:50%;
 }
 

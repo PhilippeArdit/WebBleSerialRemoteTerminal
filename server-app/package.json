@@ -1,10 +1,12 @@
 {
-  "name": "WebBleSerialRemoteTerminal",
+  "name": "webbleserialremoteterminal",
   "version": "0.0.1",
   "description": "Web Ble or Serial Remote Terminal app",
   "dependencies": {
     "express": "^4.14.0",
+    "morgan": "*",
+    "winston": "*",
     "socket.io": "^4.5.0",
-    "log-to-file": "*"
+    "rotating-file-stream": "*"
   }
 }

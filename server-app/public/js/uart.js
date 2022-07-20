@@ -189,15 +189,15 @@ Usage:
       });
 
       // Create a sleep() function.js
-      const sleep = (delay) => new Promise((resolve) => setTimeout(resolve, delay))
+      //const sleep = (delay) => new Promise((resolve) => setTimeout(resolve, delay))
 
       // Because we have potentioally several candidates as BLE devices
       // and because no API can list primary services for a given device
       async function findPrimaryService(bleServiceDescriptionList, device) {
-        
+
         log(1, 'Connecting to GATT Server for ' + device.name + '...');
         const server = await device.gatt.connect();
-        await sleep(1000);
+        //await sleep(1000);
 
         let promise = new Promise((resolve, reject) => {
           bleServiceDescriptionList.forEach(async servDescr => {
@@ -205,12 +205,12 @@ Usage:
               log(2, 'Trying getPrimaryService for ' + servDescr.name + ' : ' + servDescr.serviceUUID);
               const service = await server.getPrimaryService(servDescr.serviceUUID);
               log(1, 'Got primary service for ' + servDescr.name + ' : ' + servDescr.serviceUUID);
-              await sleep(1000);
+              //await sleep(1000);
 
               log(2, 'Trying getCharacteristic for ' + servDescr.name + ' : ' + servDescr.txUUID);
               const txCharacteristic = await service.getCharacteristic(servDescr.txUUID); // may crash here
               log(1, 'Got characteristic for ' + servDescr.name + ' : ' + servDescr.txUUID);
-              await sleep(1000);
+              //await sleep(1000);
 
               // If we are here, it is because we found the right device/service
               servDescr.device = device;

@@ -5,6 +5,7 @@ if [ ! -d $PROJECT_ROOT/node_modules ]; then
 fi
 
 pwd
-tree -I node_modules
+touch /opt/app/logs/access.log
+touch /opt/app/logs/app.log
 
 pm2-dev start "$PROJECT_ROOT/ecosystem.config.js"

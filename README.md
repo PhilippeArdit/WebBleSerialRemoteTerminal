@@ -59,19 +59,19 @@ or
 
 - Ctrl+C
 - docker-sync-stack clean
-- docker image rm WebBleSerialRemoteTerminal_server-app
+- docker image rm webbleserialremoteterminal_server-app
 
 or
 
 - Ctrl+C
 - docker-sync clean
 - docker-compose down
-- docker image rm WebBleSerialRemoteTerminal_server-app
+- docker image rm webbleserialremoteterminal_server-app
 
 ### Restart the server
 
 - Ctrl+C
-- docker-sync-stack clean && docker image rm WebBleSerialRemoteTerminal_server-app && docker-sync-stack start
+- docker-sync-stack clean && docker image rm webbleserialremoteterminal_server-app && docker-sync-stack start
 
 ### Web app usage
 

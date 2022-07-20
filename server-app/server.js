@@ -2,13 +2,20 @@
 // NodeJS with Express framework
 // -=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=
 const express = require('express');
+const rfs = require('rotating-file-stream');
+const morgan = require('morgan');
+const path = require('path');
+const winston = require('winston');
 const app = express();
 
 // -=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=
 // Define HTTP server and port
 // -=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=
-//const httpModule = 'https';
+
+// Change this following line to allow self hosted HTTPS (after creating server.key and server.cer files)
+// const httpModule = 'https';
 const httpModule = 'http';
+
 var server;
 const httpServer = require(httpModule);
 if (httpModule == 'https') {
@@ -19,8 +26,7 @@ if (httpModule == 'https') {
     cert: fs.readFileSync('server.cer')
   };
   server = httpServer.createServer(options, app);
-}
-else
+} else
   server = httpServer.createServer(app);
 
 const port = process.env.PORT || 3000;
@@ -36,11 +42,57 @@ const io = new Server(server);
 // -=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=
 // Log to console and file
 // -=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=
-const logToFile = require('log-to-file');
-logToConsoleAndFile = msg => {
-  console.log(msg);
-  logToFile(msg, 'logs/app.log'); // adds "2022.05.26, 11:48:05.0092 UTC -> " before each line
-};
+
+
+// ----------------
+// Application logs
+// ----------------
+
+// Cf. https://github.com/winstonjs/winston
+const format = winston.format;
+
+const logger = winston.createLogger({
+  levels: {
+    error: 0,
+    warn: 1,
+    info: 2,
+    chat: 3,
+    command: 4,
+    result: 5
+  },
+  format: format.combine( // combining multiple format options
+    format.timestamp({
+      format: 'YYYY-MM-DD HH:mm:ss.SSS' // for adding timestamp to log
+    }),
+    format.prettyPrint(), // for pretty printing log output
+  ),
+  transports: [
+    new winston.transports.Console({
+      level: 'result'
+    }),
+    new winston.transports.File({
+      filename: path.join(__dirname, 'logs', 'app.log'),
+      level: 'result'
+    })
+  ]
+});
+
+// ----------------
+// HTTP access logs
+// ----------------
+
+// create a rotating write stream
+var accessLogStream = rfs.createStream('access.log', {
+  interval: '1d', // rotate daily
+  path: path.join(__dirname, 'logs')
+})
+
+// setup the logger (Cf. https://expressjs.com/en/resources/middleware/morgan.html)
+// Standard Apache short log output.
+// :remote-addr :remote-user :method :url HTTP/:http-version :status :res[content-length] - :response-time ms
+app.use(morgan('combined', {
+  stream: accessLogStream
+}))
 
 // -=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=
 // Main HTML page
@@ -66,12 +118,41 @@ io.on('connection', (socket) => {
   });
 
   const ioSocketEmit = (eventName, msg, sep) => {
-    io.sockets.emit(eventName, {
+    const jsonObj = {
       userId: userId,
       msg: msg,
+      eventName: eventName,
       sep: sep
-    });
-    logToConsoleAndFile(userId + sep + msg);
+    }
+
+    // connectInfo, myNameIs, disconnect, termDataIn, logTermDataIn, chatMsg, termMsgOut, isTermConnected, termToggleConnected, whoIsConnected
+    switch (eventName) {
+      case 'termDataIn': // no longer log 'termDataIn' because those events come in bad order !
+      case 'isTermConnected':
+      case 'whoIsConnected':
+      case 'termToggleConnected':
+        break;
+      case 'logTermDataIn':
+        logger.result({
+          userId: userId,
+          msg: msg
+        });
+        break;
+      case 'termMsgOut':
+        logger.command({
+          userId: userId,
+          msg: msg
+        });
+        break;
+      case 'chatMsg':
+        logger.chat(jsonObj.userId + jsonObj.sep + jsonObj.msg);
+        break;
+      default:
+        logger.info(jsonObj);
+        break;
+    };
+
+    io.sockets.emit(eventName, jsonObj);
   }
 
   ioSocketEmit('chatMsg', 'connected', ' is ');
@@ -118,5 +199,5 @@ io.on('connection', (socket) => {
 // Launch HTTP Server
 // -=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=
 server.listen(port, () => {
-  logToConsoleAndFile(`Server running at https://localhost:${port}/`);
+  logger.info(`Server running at ${httpModule}://localhost:${port}/`);
 });

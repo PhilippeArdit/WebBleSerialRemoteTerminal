@@ -4,3 +4,4 @@ server-logs/app.log
 
 # macOS
 .DS_Store
+server-logs/access.log

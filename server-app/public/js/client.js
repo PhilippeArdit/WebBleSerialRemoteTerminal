@@ -111,7 +111,7 @@ const addLi = (message, type = 'in') => {
 }
 var strBuf = '';
 var timeoutId;
-const appendToTerminal = (message, type = 'in') => {
+const appendToTerminal = (message, bEmit, type = 'in') => {
   // Clear the order to write the end of the buffer if any
   if (timeoutId) clearTimeout(timeoutId);
 
@@ -122,14 +122,20 @@ const appendToTerminal = (message, type = 'in') => {
     var i = 0;
     strBuf = t[t.length - 1];
     while (i < t.length - 1) {
-      addLi(t[i], type);
+      if (t[i] != '') {
+        addLi(t[i], type);
+        if (bEmit) socket.emit('logTermDataIn', t[i]);
+      }
       i++;
     };
 
     // In case of text not ending with EOL
     // ask to print the end of the buffer
     timeoutId = setTimeout(() => {
-      addLi(t[t.length - 1], type);
+      if (t[t.length - 1] != '') {
+        addLi(t[t.length - 1], type);
+        if (bEmit) socket.emit('logTermDataIn', t[t.length - 1]);
+      }
       strBuf = '';
     }, 500)
 
@@ -159,16 +165,16 @@ socket.on('connectInfo', function (jsonObj) {
 });
 
 socket.on('termDataIn', function (jsonObj) {
-  appendToTerminal(jsonObj.msg, 'in');
+  appendToTerminal(jsonObj.msg, jsonObj.userId == userId, 'in');
 });
 
 socket.on('termMsgOut', function (jsonObj) {
   if (bIAmConnected) uartOrBle.write(jsonObj.msg + '\n', function () {});
-  appendToTerminal((jsonObj.userId == userId ? '' : jsonObj.userId + jsonObj.sep) + jsonObj.msg, 'out');
+  appendToTerminal((jsonObj.userId == userId ? '' : jsonObj.userId + jsonObj.sep) + jsonObj.msg, jsonObj.userId == userId, 'out');
 });
 
 socket.on('termToggleConnected', function (jsonObj) {
-  appendToTerminal((jsonObj.userId == userId ? '' : jsonObj.userId + jsonObj.sep) + jsonObj.msg + ' is ' + (bIsConnected ? '' : 'dis') + 'connected', 'in');
+  appendToTerminal((jsonObj.userId == userId ? '' : jsonObj.userId + jsonObj.sep) + jsonObj.msg + ' is ' + (bIsConnected ? '' : 'dis') + 'connected', jsonObj.userId == userId, 'in');
   deviceName.textContent = bIsConnected ?
     (jsonObj.userId == userId ? 'C' : jsonObj.userId + " is c") + 'onnected to ' + jsonObj.msg :
     defaultDeviceName;
@@ -319,7 +325,7 @@ connectButton.addEventListener('click', () => {
       if (!connection) throw "Error!";
 
       connection.on('data', function (msg) {
-        socket.emit('termDataIn', msg.replace('\r\n', '\n'));
+        socket.emit('termDataIn', msg.replace('\r\n', '\n').replace('\r', '\n'));
       });
 
       function _setConnectedUI(b) {
